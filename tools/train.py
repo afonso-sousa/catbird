@@ -90,6 +90,7 @@ def training(local_rank, cfg, args):
         global_step_transform=global_step_from_engine(trainer),
         score_name="val_bleu",
         score_function=Checkpoint.get_default_score_fn("bleu"),
+        require_empty=False
     )
     if not args.no_validate:
         evaluator.add_event_handler(Events.COMPLETED, best_model_handler)

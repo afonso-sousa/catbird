@@ -7,12 +7,12 @@ import ignite.distributed as idist
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from catbird.core import Config  # type: ignore
 from ignite.contrib.engines import common
 from ignite.engine import Engine
-from torch.utils.data.distributed import DistributedSampler
-from catbird.core import Config  # type: ignore
 from torch.cuda.amp import GradScaler, autocast
 from torch.utils.data import Sampler
+from torch.utils.data.distributed import DistributedSampler
 from transformers import AutoTokenizer
 
 
@@ -55,11 +55,11 @@ def create_trainer(
         with autocast(enabled=cfg.train.with_amp):
             y = model(input_ids=src_ids, attention_mask=src_attention_mask, labels=tgt)
             loss = y["loss"]
-            loss /= cfg.accumulation_steps
+            loss /= cfg.train.accumulation_steps
 
         scaler.scale(loss).backward()
 
-        if engine.state.iteration % cfg.accumulation_steps == 0:
+        if engine.state.iteration % cfg.train.accumulation_steps == 0:
             scaler.step(optimizer)
             scaler.update()
             optimizer.zero_grad()
