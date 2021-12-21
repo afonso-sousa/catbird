@@ -1,0 +1,46 @@
+[tool.poetry]
+name = "catbird"
+version = "0.0.2"
+description = "Paraphrase generation Toolbox and Benchmark"
+authors = ["Afonso Sousa <afonsousa2806@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+packages = [
+    { include = "catbird" }
+]
+repository = "https://github.com/AfonsoSalgadoSousa/catbird"
+documentation = "https://github.com/AfonsoSalgadoSousa/catbird"
+keywords = ["nlp", "paraphrase generation"]
+
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "License :: OSI Approved :: MIT License",
+    'Operating System :: OS Independent',
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+]
+
+
+[tool.poetry.dependencies]
+python = "^3.8"
+torch = "^1.10.0"
+pytorch-ignite = "^0.4.7"
+datasets = "^1.16.1"
+sentencepiece = "^0.1.96"
+addict = "^2.4.0"
+transformers = "^4.14.1"
+tensorboardX = "^2.4.1"
+
+[tool.poetry.dev-dependencies]
+mypy = "^0.812"
+pydocstyle = "^5.1.1"
+pytest = "^6.2.2"
+pytest-cov = "^2.11.1"
+black = "^21.12b0"
+mock = "^4.0.3"
+codespell = "^2.1.0"
+
+[build-system]
+requires = ["poetry>=0.12"]
+build-backend = "poetry.masonry.api"
