@@ -1,6 +1,7 @@
 import io
 from pathlib import Path
 from unittest.mock import patch
+import os
 
 import pytest
 from catbird.core import check_file_exist, fopen, mkdir_or_exist
@@ -22,9 +23,9 @@ def test_check_file_exist():
         check_file_exist("no_such_file.txt")
 
 
-@patch("catbird.core.utils.path.Path.mkdir")
-def test_mkdir_or_exists(mock_mkdir):
+@patch("catbird.core.utils.path.os.makedirs")
+def test_mkdir_or_exists(mock_makedirs):
     assert mkdir_or_exist("") == None
     assert mkdir_or_exist("no_such_file.txt") == None
     mkdir_or_exist("such_file.txt")
-    mock_mkdir.assert_called_with(mode=0o777, exist_ok=True)
+    mock_makedirs.assert_called_with("such_file.txt", mode=0o777, exist_ok=True)

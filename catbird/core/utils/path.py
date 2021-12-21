@@ -42,4 +42,4 @@ def mkdir_or_exist(dir_name: str, mode: int = 0o777) -> None:
     """
     if dir_name == "":
         return
-    Path(dir_name).mkdir(mode=mode, exist_ok=True)
+    os.makedirs(dir_name, mode=mode, exist_ok=True)
