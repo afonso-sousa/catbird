@@ -3,17 +3,17 @@ import warnings
 from pathlib import Path
 
 import ignite.distributed as idist
+from catbird.apis import create_evaluator, create_trainer
+from catbird.core import (Config, log_basic_info, log_metrics_eval,
+                          mkdir_or_exist)
+from catbird.datasets import build_dataset, get_dataloaders
+from catbird.models import build_generator
+from catbird.tokenizers import build_tokenizer
 from ignite.contrib.engines import common
 from ignite.engine import Events
 from ignite.handlers import Checkpoint, global_step_from_engine
 from ignite.metrics import Bleu
 from ignite.utils import manual_seed, setup_logger
-from catbird.apis import create_evaluator, create_trainer
-from catbird.core import (Config, log_basic_info, log_metrics_eval,
-                           mkdir_or_exist)
-from catbird.datasets import build_dataset, get_dataloaders
-from catbird.models import build_generator
-from transformers import AutoTokenizer
 
 warnings.filterwarnings("ignore")
 
@@ -45,7 +45,8 @@ def training(local_rank, cfg, args):
     logger = setup_logger(name="Paraphrase", distributed_rank=local_rank)
     log_basic_info(logger, cfg)
 
-    tokenizer = AutoTokenizer.from_pretrained(cfg.tokenizer_name)
+    tokenizer = build_tokenizer(cfg)
+    cfg.embedding_length = len(tokenizer)
 
     datasets = build_dataset(cfg, tokenizer, validate=(not args.no_validate))
     dataloaders = get_dataloaders(cfg, *datasets)
@@ -90,7 +91,7 @@ def training(local_rank, cfg, args):
         global_step_transform=global_step_from_engine(trainer),
         score_name="val_bleu",
         score_function=Checkpoint.get_default_score_fn("bleu"),
-        require_empty=False
+        require_empty=False,
     )
     if not args.no_validate:
         evaluator.add_event_handler(Events.COMPLETED, best_model_handler)
@@ -112,8 +113,6 @@ def training(local_rank, cfg, args):
 def run():
     args = parse_args()
     cfg = Config.fromfile(args.config)
-
-    import os.path as osp
 
     if args.work_dir is not None:
         cfg.work_dir = args.work_dir

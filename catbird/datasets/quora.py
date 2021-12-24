@@ -46,7 +46,7 @@ class QuoraDataset(Dataset):
         task_prefix = "paraphrase: "
         src_text = [task_prefix + str(self.data[idx]["questions"]["text"][0]) + " </s>"]
 
-        tgt_text = [str(self.data[idx]["questions"]["text"][1])]
+        tgt_text = [str(self.data[idx]["questions"]["text"][1]) + " </s>"]
         input_txt_tokenized = self.tokenizer(
             src_text, max_length=self.max_length, padding="max_length", truncation=True
         )

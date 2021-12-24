@@ -3,9 +3,6 @@ output_path: "./work_dirs"
 print_output_every: 50
 num_workers: 4
 
-# tokenizer
-tokenizer_name: "t5-small"
-
 # dataset settings
 dataset_name: 'Quora'
 data:
@@ -29,5 +26,11 @@ train:
 
 # model settings
 model:
-  name: "t5-small"
-  freeze_encoder: False
+  name: "EDL"
+  emb_dim: 512
+  emb_hid_dim: 256
+  enc_dropout: 0.5
+  enc_rnn_dim: 512
+  enc_dim: 512
+  gen_rnn_dim: 512
+  gen_dropout: 0.5

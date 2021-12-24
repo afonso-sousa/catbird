@@ -10,6 +10,7 @@ from transformers import AutoTokenizer
 from datasets import load_dataset  # type: ignore
 
 from .quora import QuoraDataset as QuoraDataset
+from ignite.utils import setup_logger
 
 
 def build_dataset(
@@ -27,6 +28,10 @@ def build_dataset(
     Returns:
         tuple: tuple with train dataset or train and validation datasets
     """
+    logger = setup_logger(name="Dataset", distributed_rank=idist.get_rank())
+    logger.info(f"Loading {cfg.dataset_name} dataset")
+    [print(f"{k} - {v}") for k, v in cfg.data.items()]
+    
     if cfg.dataset_name.lower() == "quora":
         dataset = load_dataset("quora")
         dataset = dataset.shuffle(seed=kwargs.pop("seed", 0))

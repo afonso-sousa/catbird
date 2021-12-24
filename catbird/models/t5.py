@@ -29,6 +29,9 @@ def initialize(cfg: Config) -> Tuple[nn.Module, optim.Optimizer]:
         Tuple[nn.Module, optim.Optimizer]: model and optimizer
     """
     model = T5ForConditionalGeneration.from_pretrained(cfg.model.name)
+    if cfg.get("tokenizer", None):
+        model.resize_token_embeddings(cfg.embedding_length)
+
     lr = cfg.train.learning_rate * idist.get_world_size()
     no_decay = ["bias", "LayerNorm.weight"]
     optimizer_grouped_parameters = [

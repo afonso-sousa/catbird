@@ -31,3 +31,6 @@ train:
 model:
   name: "t5-small"
   freeze_encoder: False
+
+tokenizer:
+  special_tokens: ["<DEFN>", "<ANAG>", "<ANS>", "<INDIC>"]
