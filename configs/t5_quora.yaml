@@ -19,9 +19,8 @@ data:
 # train settings
 train:
   batch_size: 25
-  n_epochs: 1
   learning_rate: 0.0001
-  num_epochs: 1
+  num_epochs: 50
   batch_size: 32
   accumulation_steps: 1
   weight_decay: 0.01

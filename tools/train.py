@@ -1,18 +1,19 @@
+"""File to train a paraphrase generator."""
 import argparse
 import warnings
 from pathlib import Path
 
 import ignite.distributed as idist
-from ignite.contrib.engines import common
-from ignite.engine import Events
-from ignite.handlers import Checkpoint, global_step_from_engine
-from ignite.metrics import Bleu
-from ignite.utils import manual_seed, setup_logger
 from catbird.apis import create_evaluator, create_trainer
 from catbird.core import (Config, log_basic_info, log_metrics_eval,
-                           mkdir_or_exist)
+                          mkdir_or_exist)
 from catbird.datasets import build_dataset, get_dataloaders
 from catbird.models import build_generator
+from ignite.contrib.engines import common
+from ignite.engine import Events
+from ignite.handlers import Checkpoint, DiskSaver, global_step_from_engine
+from ignite.metrics import Bleu
+from ignite.utils import manual_seed, setup_logger
 from transformers import AutoTokenizer
 
 warnings.filterwarnings("ignore")
@@ -71,12 +72,6 @@ def training(local_rank, cfg, args):
             )
 
     if rank == 0:
-        # timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-        # folder_name = f"paraphrase_model_backend-{idist.backend()}-{idist.get_world_size()}_{timestamp}"
-        # output_path = Path(cfg.work_dir, folder_name)
-        # mkdir_or_exist(output_path)
-        # logger.info(f"Output path: {output_path}")
-
         evaluators = {"val": evaluator} if (not args.no_validate) else None
         tb_logger = common.setup_tb_logging(
             cfg.work_dir, trainer, optimizer, evaluators=evaluators
@@ -84,13 +79,12 @@ def training(local_rank, cfg, args):
 
     best_model_handler = Checkpoint(
         {"model": model},
-        cfg.work_dir.as_posix(),
+        DiskSaver(dirname=cfg.work_dir.as_posix()),
         filename_prefix="best",
         n_saved=2,
         global_step_transform=global_step_from_engine(trainer),
         score_name="val_bleu",
         score_function=Checkpoint.get_default_score_fn("bleu"),
-        require_empty=False
     )
     if not args.no_validate:
         evaluator.add_event_handler(Events.COMPLETED, best_model_handler)
@@ -112,8 +106,6 @@ def training(local_rank, cfg, args):
 def run():
     args = parse_args()
     cfg = Config.fromfile(args.config)
-
-    import os.path as osp
 
     if args.work_dir is not None:
         cfg.work_dir = args.work_dir
