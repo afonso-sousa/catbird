@@ -1,3 +1,4 @@
+"""File to train a paraphrase generator."""
 import argparse
 import warnings
 from pathlib import Path
@@ -11,7 +12,7 @@ from catbird.models import build_generator
 from catbird.tokenizers import build_tokenizer
 from ignite.contrib.engines import common
 from ignite.engine import Events
-from ignite.handlers import Checkpoint, global_step_from_engine
+from ignite.handlers import Checkpoint, DiskSaver, global_step_from_engine
 from ignite.metrics import Bleu
 from ignite.utils import manual_seed, setup_logger
 
@@ -72,12 +73,6 @@ def training(local_rank, cfg, args):
             )
 
     if rank == 0:
-        # timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-        # folder_name = f"paraphrase_model_backend-{idist.backend()}-{idist.get_world_size()}_{timestamp}"
-        # output_path = Path(cfg.work_dir, folder_name)
-        # mkdir_or_exist(output_path)
-        # logger.info(f"Output path: {output_path}")
-
         evaluators = {"val": evaluator} if (not args.no_validate) else None
         tb_logger = common.setup_tb_logging(
             cfg.work_dir, trainer, optimizer, evaluators=evaluators
@@ -85,13 +80,12 @@ def training(local_rank, cfg, args):
 
     best_model_handler = Checkpoint(
         {"model": model},
-        cfg.work_dir.as_posix(),
+        DiskSaver(dirname=cfg.work_dir.as_posix()),
         filename_prefix="best",
         n_saved=2,
         global_step_transform=global_step_from_engine(trainer),
         score_name="val_bleu",
         score_function=Checkpoint.get_default_score_fn("bleu"),
-        require_empty=False,
     )
     if not args.no_validate:
         evaluator.add_event_handler(Events.COMPLETED, best_model_handler)
