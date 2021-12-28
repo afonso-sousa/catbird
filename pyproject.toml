@@ -31,6 +31,8 @@ sentencepiece = "^0.1.96"
 addict = "^2.4.0"
 transformers = "^4.14.1"
 tensorboardX = "^2.4.1"
+nltk = "^3.6.6"
+sacrebleu = "^2.0.0"
 
 [tool.poetry.dev-dependencies]
 mypy = "^0.812"
