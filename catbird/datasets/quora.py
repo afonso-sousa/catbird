@@ -32,6 +32,7 @@ class QuoraDataset(Dataset):
             if cfg.data[split].dataset_length != -1
             else len(self.data)
         )
+        self.mask_pad_token = cfg.data.get("mask_pad_token", False)
 
     def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
         """Get dataset record in index.
@@ -59,11 +60,14 @@ class QuoraDataset(Dataset):
                 truncation=True,
             )
 
-        # The pad token in target is replaced with -100 so that it doesn't get added to loss.
-        tgt_text_tokenized = [
-            [(l if l != self.tokenizer.pad_token_id else -100) for l in label]
-            for label in tgt_text_tokenized.input_ids
-        ]
+        # If mask_pad_token, the pad token in target is replaced with -100 so that it doesn't get added to loss.
+        if self.mask_pad_token:
+            tgt_text_tokenized = [
+                [(l if l != self.tokenizer.pad_token_id else -100) for l in label]
+                for label in tgt_text_tokenized.input_ids
+            ]
+        else:
+            tgt_text_tokenized = tgt_text_tokenized.input_ids
 
         input_txt_tokenized.update({"tgt": tgt_text_tokenized[0]})
 

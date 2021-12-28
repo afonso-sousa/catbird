@@ -15,7 +15,6 @@ data:
 
 # train settings
 train:
-  batch_size: 25
   learning_rate: 0.0001
   num_epochs: 1
   batch_size: 32
@@ -26,7 +25,7 @@ train:
 
 # model settings
 model:
-  name: "EDL"
+  name: "EDD"
   emb_dim: 512
   emb_hid_dim: 256
   enc_dropout: 0.5

@@ -6,7 +6,7 @@ from catbird.core import Config  # type: ignore
 from transformers import AutoTokenizer
 
 
-def build_tokenizer(cfg: Config) -> Any:
+def build_tokenizer(cfg: Config) -> AutoTokenizer:
     """Abstraction to build tokenizers based on the given configurations.
 
     Args:
@@ -22,9 +22,10 @@ def build_tokenizer(cfg: Config) -> Any:
         tokenizer = AutoTokenizer.from_pretrained(cfg.model.name.lower())
         if cfg.get("tokenizer", None):
             tokenizer.add_special_tokens(cfg.tokenizer.special_tokens)
-        return tokenizer
     except:
         print(
             "The model name does not match an existing tokenizer. Returning bert-base-uncased pretrained tokenizer."
         )
-        return AutoTokenizer.from_pretrained("bert-base-uncased")
+        tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
+    finally:
+        return tokenizer

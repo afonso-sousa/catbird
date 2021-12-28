@@ -30,7 +30,7 @@ def build_dataset(
     """
     logger = setup_logger(name="Dataset", distributed_rank=idist.get_rank())
     logger.info(f"Loading {cfg.dataset_name} dataset")
-    [print(f"{k} - {v}") for k, v in cfg.data.items()]
+    [logger.info(f"{k} - {v}") for k, v in cfg.data.items()]
     
     if cfg.dataset_name.lower() == "quora":
         dataset = load_dataset("quora")

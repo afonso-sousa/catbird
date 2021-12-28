@@ -1,5 +1,6 @@
 """Main methods for model training and evaluation."""
 
+from importlib import import_module
 from logging import Logger
 from typing import Optional
 
@@ -11,7 +12,6 @@ from catbird.core import Config  # type: ignore
 from ignite.contrib.engines import common
 from ignite.engine import Engine
 from torch.cuda.amp import GradScaler, autocast
-from torch.utils.data import Sampler
 from torch.utils.data.distributed import DistributedSampler
 from transformers import AutoTokenizer
 
@@ -39,32 +39,9 @@ def create_trainer(
     device = idist.device()
     scaler = GradScaler(enabled=cfg.train.with_amp)
 
-    def train_step(engine, batch):
-        model.train()
-
-        if batch["tgt"].device != device:
-            batch = {
-                k: v.to(device, non_blocking=True, dtype=torch.long)
-                for (k, v) in batch.items()
-            }
-
-        src_ids = batch["input_ids"]
-        src_attention_mask = batch["attention_mask"]
-        tgt = batch["tgt"]
-
-        with autocast(enabled=cfg.train.with_amp):
-            y = model(input_ids=src_ids, attention_mask=src_attention_mask, labels=tgt)
-            loss = y["loss"]
-            loss /= cfg.train.accumulation_steps
-
-        scaler.scale(loss).backward()
-
-        if engine.state.iteration % cfg.train.accumulation_steps == 0:
-            scaler.step(optimizer)
-            scaler.update()
-            optimizer.zero_grad()
-
-        return {"batch loss": loss.item()}
+    model_name = cfg.model.name.lower().split("-")[0]
+    module = import_module(f"catbird.models.{model_name}")
+    train_step = getattr(module, "train_step")(cfg, model, optimizer, device, scaler)
 
     trainer = Engine(train_step)
     trainer.logger = logger
@@ -146,3 +123,28 @@ def create_evaluator(
         metric.attach(evaluator, name)
 
     return evaluator
+
+
+if __name__ == "__main__":
+    import logging
+
+    from catbird.core import Config
+    from catbird.datasets import build_dataset, get_dataloaders
+    from catbird.models import build_generator
+    from catbird.tokenizers import build_tokenizer
+
+    cfg = Config.fromfile("configs/edl_quora.yaml")
+
+    tokenizer = build_tokenizer(cfg)
+    cfg.embedding_length = len(tokenizer)
+
+    datasets = build_dataset(cfg, tokenizer, validate=False)
+    dataloaders = get_dataloaders(cfg, *datasets)
+
+    model, optimizer = build_generator(cfg)
+    trainer = create_trainer(
+        cfg, model, optimizer, dataloaders[0].sampler, logging.getLogger()
+    )
+    
+    print(dir(trainer))
+

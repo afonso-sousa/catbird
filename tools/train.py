@@ -48,6 +48,7 @@ def training(local_rank, cfg, args):
 
     tokenizer = build_tokenizer(cfg)
     cfg.embedding_length = len(tokenizer)
+    cfg.pad_token_id = tokenizer.pad_token_id
 
     datasets = build_dataset(cfg, tokenizer, validate=(not args.no_validate))
     dataloaders = get_dataloaders(cfg, *datasets)

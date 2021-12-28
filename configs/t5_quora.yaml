@@ -10,6 +10,7 @@ tokenizer_name: "t5-small"
 dataset_name: 'Quora'
 data:
   max_length: 80
+  mask_pad_token: True
   train:
     dataset_length: -1
   val:
@@ -18,7 +19,6 @@ data:
 
 # train settings
 train:
-  batch_size: 25
   learning_rate: 0.0001
   num_epochs: 50
   batch_size: 32
