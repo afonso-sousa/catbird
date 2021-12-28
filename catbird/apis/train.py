@@ -79,43 +79,9 @@ def create_evaluator(
     """
     device = idist.device()
 
-    def ids_to_clean_text(generated_ids):
-        gen_text = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)
-        return list(map(str.strip, gen_text))
-
-    @torch.no_grad()
-    def evaluate_step(engine, batch):
-        model.eval()
-
-        if batch["tgt"].device != device:
-            batch = {
-                k: v.to(device, non_blocking=True, dtype=torch.long)
-                for (k, v) in batch.items()
-            }
-
-        src_ids = batch["input_ids"]
-        src_attention_mask = batch["attention_mask"]
-        tgt = batch["tgt"]
-        if idist.get_world_size() > 1:
-            y_pred = model.module.generate(
-                input_ids=src_ids, attention_mask=src_attention_mask
-            )
-        else:
-            y_pred = model.generate(
-                input_ids=src_ids, attention_mask=src_attention_mask
-            )
-
-        tgt = torch.where(tgt != -100, tgt, tokenizer.pad_token_id)
-
-        preds = ids_to_clean_text(y_pred)
-        tgt = ids_to_clean_text(tgt)
-        preds = [_preds.split() for _preds in preds]
-        tgt = [[_tgt.split()] for _tgt in tgt]
-
-        if engine.state.iteration % cfg.print_output_every == 0:
-            logger.info(f'\n Preds : {" ".join(preds[0])} \n')
-            logger.info(f'\n Target : {" ".join(tgt[0][0])} \n')
-        return preds, tgt
+    model_name = cfg.model.name.lower().split("-")[0]
+    module = import_module(f"catbird.models.{model_name}")
+    evaluate_step = getattr(module, "evaluate_step")(cfg, model, tokenizer, device, logger)
 
     evaluator = Engine(evaluate_step)
 
