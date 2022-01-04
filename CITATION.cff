@@ -1,0 +1,9 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "Sousa"
+  given-names: "Afonso"
+title: "catbird"
+version: 0.0.2
+url: "https://github.com/AfonsoSalgadoSousa/catbird"
+license: MIT
