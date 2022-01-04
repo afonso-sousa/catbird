@@ -1,5 +1,7 @@
-from typing import Tuple
+from logging import Logger
+from typing import Tuple, Union
 
+"""Class with facilities to train and evaluate a Encoder-Decoder-Discriminator model."""
 import ignite.distributed as idist
 import torch
 import torch.nn as nn
@@ -7,19 +9,21 @@ import torch.optim as optim
 from catbird.core import Config  # type: ignore
 from torch.cuda.amp import GradScaler, autocast
 from torch.nn import CrossEntropyLoss
+from transformers import AutoTokenizer
 
 from .utils import JointEmbeddingLoss, freeze_params, one_hot
 
 
 class GRUEncoder(nn.Module):
+    """Simple GRU-based encoder."""
     def __init__(
         self,
-        vocab_size,
-        embedding_hidden_dims,
-        embedding_out_dims,
-        encoder_hidden_dims,
-        encoder_out_dims,
-        dropout_proba=0.5,
+        vocab_size: int,
+        embedding_hidden_dims: int,
+        embedding_out_dims: int,
+        encoder_hidden_dims: int,
+        encoder_out_dims: int,
+        dropout_proba: int = 0.5,
     ):
         super(GRUEncoder, self).__init__()
         self.vocab_size = vocab_size
@@ -35,8 +39,15 @@ class GRUEncoder(nn.Module):
             nn.Dropout(dropout_proba), nn.Linear(encoder_hidden_dims, encoder_out_dims),
         )
 
-    def forward(self, input):
-        """Forward function."""
+    def forward(self, input: torch.Tensor) -> torch.Tensor:
+        """Define model's forward pass.
+
+        Args:
+            input (torch.Tensor): Batch of sentences as id sequences.
+
+        Returns:
+            torch.Tensor: Output of last linear layer.
+        """
 
         one_hot_input = one_hot(input, self.vocab_size)
         embedding_out = self.embedding_layer(one_hot_input)
@@ -49,27 +60,28 @@ class GRUEncoder(nn.Module):
 class EDD(nn.Module):
     """
     LSTM-based Encoder-Decoder-Discriminator (EDD) architecture.
-    
+
     This is an implementation of paper `Learning Semantic Sentence Embeddings
     using Sequential Pair-wise Discriminator <https://aclanthology.org/C18-1230/>`.
     """
 
-    def __init__(self, cfg):
+    def __init__(self, cfg: Config) -> None:
+        """Initialize Encoder-Decoder-Disciminator architecture.
+
+        Args:
+            cfg (Config): Config instance with configurations.
+        """
         super(EDD, self).__init__()
         self.max_seq_len = cfg.data.max_length
         self.vocab_sz = cfg.embedding_length
 
-        # encoder :
-        self.emb_layer = nn.Sequential(
-            nn.Linear(self.vocab_sz, cfg.model.emb_hid_dim),
-            nn.Threshold(0.000001, 0),
-            nn.Linear(cfg.model.emb_hid_dim, cfg.model.emb_dim),
-            nn.Threshold(0.000001, 0),
-        )
-        self.enc_rnn = nn.GRU(cfg.model.emb_dim, cfg.model.enc_rnn_dim)
-        self.enc_lin = nn.Sequential(
-            nn.Dropout(cfg.model.enc_dropout),
-            nn.Linear(cfg.model.enc_rnn_dim, cfg.model.enc_dim),
+        self.encoder = GRUEncoder(
+            self.vocab_sz,
+            cfg.model.emb_hid_dim,
+            cfg.model.emb_dim,
+            cfg.model.enc_rnn_dim,
+            cfg.model.enc_dim,
+            cfg.model.enc_dropout,
         )
 
         # generator :
@@ -111,10 +123,7 @@ class EDD(nn.Module):
             sim_phrase = phrase
 
         if train:
-            # encode input phrase
-            enc_phrase = self.enc_lin(
-                self.enc_rnn(self.emb_layer(one_hot(phrase, self.vocab_sz)))[1]
-            )
+            enc_phrase = self.encoder(phrase)
 
             # generate similar phrase using teacher forcing
             emb_sim_phrase_gen = self.gen_emb(sim_phrase)
@@ -131,10 +140,7 @@ class EDD(nn.Module):
             enc_out = self.dis_lin(self.dis_rnn(self.dis_emb_layer(torch.exp(out)))[1])
 
         else:
-            # encode input phrase
-            enc_phrase = self.enc_lin(
-                self.enc_rnn(self.emb_layer(one_hot(phrase, self.vocab_sz)))[1]
-            )
+            enc_phrase = self.encoder(phrase)
 
             # generate similar phrase using teacher forcing
             words = []
@@ -160,7 +166,23 @@ class EDD(nn.Module):
         return out, enc_out, enc_sim_phrase
 
 
-def train_step(cfg, model, optimizer, device, scaler):
+def train_step(
+    cfg: Config,
+    model: nn.Module,
+    optimizer: optim.Optimizer,
+    device: Union[str, torch.device],
+    scaler: GradScaler,
+):
+    """Decorate train step to add more parameters.
+
+    Args:
+        cfg (Config): Config instance with configurations.
+        model (nn.Module): a Pytorch model.
+        optimizer (optim.Optimizer): a Pytorch optimizer.
+        device (Union[str, torch.device]): specifies which device updates are accumulated on.
+        scaler (GradScaler): GradScaler instance for gradient scaling.
+    """
+
     def routine(engine, batch):
         if cfg.get("tokenizer", None):
             ignore_index = -100
@@ -200,7 +222,23 @@ def train_step(cfg, model, optimizer, device, scaler):
     return routine
 
 
-def evaluate_step(cfg, model, tokenizer, device, logger):
+def evaluate_step(
+    cfg: Config,
+    model: nn.Module,
+    tokenizer: AutoTokenizer,
+    device: Union[str, torch.device],
+    logger: Logger,
+):
+    """Decorate evaluate step to add more parameters.
+
+    Args:
+        cfg (Config): Config instance with configurations.
+        model (nn.Module): a Pytorch model.
+        tokenizer (AutoTokenizer): a Pytorch optimizer.
+        device (Union[str, torch.device]): specifies which device updates are accumulated on.
+        logger (Logger): a Logger instance.
+    """
+
     def ids_to_clean_text(generated_ids):
         gen_text = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)
         return list(map(str.strip, gen_text))

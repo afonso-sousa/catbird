@@ -81,7 +81,9 @@ def create_evaluator(
 
     model_name = cfg.model.name.lower().split("-")[0]
     module = import_module(f"catbird.models.{model_name}")
-    evaluate_step = getattr(module, "evaluate_step")(cfg, model, tokenizer, device, logger)
+    evaluate_step = getattr(module, "evaluate_step")(
+        cfg, model, tokenizer, device, logger
+    )
 
     evaluator = Engine(evaluate_step)
 
@@ -111,6 +113,5 @@ if __name__ == "__main__":
     trainer = create_trainer(
         cfg, model, optimizer, dataloaders[0].sampler, logging.getLogger()
     )
-    
-    print(dir(trainer))
 
+    print(dir(trainer))

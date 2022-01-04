@@ -1,12 +1,13 @@
 import json
 import os.path as osp
 import tempfile
+from pathlib import Path
 
 import pytest
 import yaml
 from catbird.core import Config
 
-data_path = osp.join(osp.dirname(osp.dirname(__file__)), "data")
+data_path = Path(__file__).parent.parent / "data"
 
 
 def test_instancing():

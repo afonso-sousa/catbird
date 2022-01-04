@@ -46,6 +46,10 @@ catbird
 ```
 We use the [HuggingFace Datasets library](https://huggingface.co/docs/datasets/) to load the datasets.
 
+Prepare Quora data by running:
+```shell
+poetry run python tools/create_data.py quora --root-path ./data/quora --out-dir ./data/quora
+```
 ### Train
 
 ```shell
@@ -55,7 +59,7 @@ poetry run python tools/train.py ${CONFIG_FILE} [optional arguments]
 Example:
 1. Train T5 on QQP.
 ```bash
-$ python tools/train.py configs/t5_quora.yaml
+$ poetry run python tools/train.py configs/t5_quora.yaml
 ```
 
 ## Contributors

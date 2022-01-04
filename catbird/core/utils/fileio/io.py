@@ -4,13 +4,15 @@ from pathlib import Path
 from typing import Any, Optional, Union
 import os
 
-from .handlers import JsonHandler, YamlHandler
+from .handlers import JsonHandler, YamlHandler, PickleHandler
 
 
 file_handlers = {
     "json": JsonHandler(),
     "yaml": YamlHandler(),
     "yml": YamlHandler(),
+    'pickle': PickleHandler(),
+    'pkl': PickleHandler()
 }
 
 

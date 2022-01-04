@@ -19,12 +19,14 @@ def one_hot(t, c):
 
 
 def JointEmbeddingLoss(feature_emb1, feature_emb2):
-       
+
     batch_size = feature_emb1.size()[0]
 
     return torch.sum(
         torch.clamp(
-            torch.mm(feature_emb1, feature_emb2.t()) - torch.sum(feature_emb1 * feature_emb2, dim=-1) + 1,
-            min=0.0
+            torch.mm(feature_emb1, feature_emb2.t())
+            - torch.sum(feature_emb1 * feature_emb2, dim=-1)
+            + 1,
+            min=0.0,
         )
     ) / (batch_size * batch_size)

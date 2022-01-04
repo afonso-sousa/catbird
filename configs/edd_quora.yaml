@@ -15,12 +15,12 @@ data:
 
 # train settings
 train:
-  learning_rate: 0.0001
-  num_epochs: 1
+  num_epochs: 50
   batch_size: 32
-  accumulation_steps: 1
+  learning_rate: 0.0001
   weight_decay: 0.01
   epoch_length: 500
+  accumulation_steps: 1
   with_amp: False
 
 # model settings

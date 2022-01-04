@@ -16,7 +16,7 @@
 import torch
 
 
-class Beam(object):
+class Beam:
     """Ordered beam of candidate outputs."""
 
     def __init__(self, size, batch_loader, cuda=False):

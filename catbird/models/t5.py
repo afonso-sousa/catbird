@@ -1,6 +1,6 @@
 """Method to initialize a pretrained T5 conditional generation model."""
-
-from typing import Tuple
+from logging import Logger
+from typing import Tuple, Union
 
 import ignite.distributed as idist
 import torch
@@ -8,12 +8,28 @@ import torch.nn as nn
 import torch.optim as optim
 from catbird.core import Config  # type: ignore
 from torch.cuda.amp import GradScaler, autocast
-from transformers import T5ForConditionalGeneration
+from transformers import AutoTokenizer, T5ForConditionalGeneration
 
 from .utils import freeze_params
 
 
-def train_step(cfg, model, optimizer, device, scaler):
+def train_step(
+    cfg: Config,
+    model: nn.Module,
+    optimizer: optim.Optimizer,
+    device: Union[str, torch.device],
+    scaler: GradScaler,
+):
+    """Decorate train step to add more parameters.
+
+    Args:
+        cfg (Config): Config instance with configurations.
+        model (nn.Module): a Pytorch model.
+        optimizer (optim.Optimizer): a Pytorch optimizer.
+        device (Union[str, torch.device]): specifies which device updates are accumulated on.
+        scaler (GradScaler): GradScaler instance for gradient scaling.
+    """
+
     def routine(engine, batch):
         model.train()
 
@@ -44,7 +60,23 @@ def train_step(cfg, model, optimizer, device, scaler):
     return routine
 
 
-def evaluate_step(cfg, model, tokenizer, device, logger):
+def evaluate_step(
+    cfg: Config,
+    model: nn.Module,
+    tokenizer: AutoTokenizer,
+    device: Union[str, torch.device],
+    logger: Logger,
+):
+    """Decorate evaluate step to add more parameters.
+
+    Args:
+        cfg (Config): Config instance with configurations.
+        model (nn.Module): a Pytorch model.
+        tokenizer (AutoTokenizer): a Pytorch optimizer.
+        device (Union[str, torch.device]): specifies which device updates are accumulated on.
+        logger (Logger): a Logger instance.
+    """
+
     def ids_to_clean_text(generated_ids):
         gen_text = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)
         return list(map(str.strip, gen_text))
