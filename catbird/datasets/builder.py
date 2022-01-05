@@ -3,12 +3,11 @@
 from typing import Any, Tuple
 
 import ignite.distributed as idist
-from catbird.core import Config  # type: ignore
+from catbird.core import Config, load  # type: ignore
 from ignite.utils import setup_logger
 from torch.utils.data import DataLoader, Dataset
 from transformers import AutoTokenizer
-
-from datasets import load_dataset  # type: ignore
+from pathlib import Path
 
 from .quora import QuoraDataset as QuoraDataset
 
@@ -33,20 +32,14 @@ def build_dataset(
     [logger.info(f"{k} - {v}") for k, v in cfg.data.items()]
 
     if cfg.dataset_name.lower() == "quora":
-        dataset = load_dataset("quora")
-        dataset = dataset.shuffle(seed=kwargs.pop("seed", 0))
-        dataset = dataset["train"]
-        dataset = dataset.filter(
-            lambda example: example["is_duplicate"] == True
-        )  # Filter for true paraphrases
+        train_data = load(Path(cfg.data_root) / "quora_train.pkl")
+        train_dataset = QuoraDataset(cfg, "train", train_data, tokenizer)
         if kwargs.pop("validate", False):
-            dataset = dataset.train_test_split(test_size=cfg.data.val.train_test_split)
-            return (
-                QuoraDataset(cfg, "train", dataset["train"], tokenizer),
-                QuoraDataset(cfg, "val", dataset["test"], tokenizer),
-            )
+            val_data = load(Path(cfg.data_root) / "quora_val.pkl")
+            val_dataset = QuoraDataset(cfg, "val", val_data, tokenizer)
+            return train_dataset, val_dataset
         else:
-            return (QuoraDataset(cfg, "train", dataset, tokenizer),)
+            return train_dataset
     else:
         raise NameError(
             "The dataset name does not match any of our currently available options."

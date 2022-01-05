@@ -1,27 +1,25 @@
 """Define Torch Dataset for Quora Questions Pairs corpus."""
 
-from typing import Dict
+from typing import Dict, List
 
 import torch
 from catbird.core import Config  # type: ignore
 from torch.utils.data import Dataset
 from transformers import AutoTokenizer
 
-from datasets import Dataset as HugDataset
-
 
 class QuoraDataset(Dataset):
     """Torch Dataset class to process the Quora dataset."""
 
     def __init__(
-        self, cfg: Config, split: str, data: HugDataset, tokenizer: AutoTokenizer
+        self, cfg: Config, split: str, data: List, tokenizer: AutoTokenizer
     ) -> None:
         """Initialize attributes of the class.
 
         Args:
             cfg (Config): configuration file
             split (str): string with either 'train' or 'val' to guide configuration attributes to use
-            data (HugDataset): Dataset instance from HuggingFace
+            data (List): List of dictionaries with reference and candidate sentences
             tokenizer (AutoTokenizer): AutoTokenizer instance from HuggingFace
         """
         self.data = data
@@ -33,6 +31,7 @@ class QuoraDataset(Dataset):
             else len(self.data)
         )
         self.mask_pad_token = cfg.data.get("mask_pad_token", False)
+        self.task_prefix = cfg.data.get("task_prefix", "")
 
     def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
         """Get dataset record in index.
@@ -43,11 +42,9 @@ class QuoraDataset(Dataset):
         Returns:
             dict[str, torch.Tensor]: dictionary with src and target sentences as embedding tensors
         """
-        # t5 models require a prefix describing the task
-        task_prefix = "paraphrase: "
-        src_text = [task_prefix + str(self.data[idx]["questions"]["text"][0]) + " </s>"]
+        src_text = [self.task_prefix + str(self.data[idx]["src"]) + " </s>"]
 
-        tgt_text = [str(self.data[idx]["questions"]["text"][1]) + " </s>"]
+        tgt_text = [str(self.data[idx]["tgt"]) + " </s>"]
         input_txt_tokenized = self.tokenizer(
             src_text, max_length=self.max_length, padding="max_length", truncation=True
         )

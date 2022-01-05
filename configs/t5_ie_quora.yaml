@@ -7,9 +7,12 @@ num_workers: 4
 tokenizer_name: "t5-small"
 
 # dataset settings
-dataset_name: 'Quora'
+dataset_name: "Quora"
+data_root: "data/quora/"
 data:
   max_length: 80
+  mask_pad_token: True
+  task_prefix: "paraphrase: "
   train:
     dataset_length: -1
   val:

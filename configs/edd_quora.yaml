@@ -4,7 +4,8 @@ print_output_every: 50
 num_workers: 4
 
 # dataset settings
-dataset_name: 'Quora'
+dataset_name: "Quora"
+data_root: "data/quora/"
 data:
   max_length: 80
   train:

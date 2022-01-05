@@ -1,6 +1,6 @@
 import argparse
-from pathlib import Path
 import random
+from pathlib import Path
 
 import pandas as pd
 from catbird.core import dump
@@ -26,15 +26,18 @@ def quora_data_prep(data_path, save_path=None, split_perc=0.3):
     quora_df = quora_df.drop(["id", "qid1", "qid2", "is_duplicate"], axis=1)
     quora_df = quora_df.rename(columns={"question1": "src", "question2": "tgt"})
     quora = quora_df.to_dict("records")
-    
+
     random.shuffle(quora)
-    train_data = quora[:int(len(quora) * (1 - split_perc))]
-    test_data = quora[int(len(quora) * (1 - split_perc)):]
-    
+    train_data = quora[: int(len(quora) * (1 - split_perc))]
+    val_data = quora[int(len(quora) * (1 - split_perc)) :]
+
     train_filename = save_path / "quora_train.pkl"
+    print(f"Quora train split is saved to '{train_filename}'")
     dump(train_data, train_filename)
-    test_filename = save_path / "quora_train.pkl"
-    dump(test_data, test_filename)
+    val_filename = save_path / "quora_val.pkl"
+    print(f"Quora val split is saved to '{val_filename}'")
+    dump(val_data, val_filename)
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Data converter arg parser")

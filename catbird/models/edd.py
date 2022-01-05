@@ -16,6 +16,7 @@ from .utils import JointEmbeddingLoss, freeze_params, one_hot
 
 class GRUEncoder(nn.Module):
     """Simple GRU-based encoder."""
+
     def __init__(
         self,
         vocab_size: int,
@@ -73,10 +74,10 @@ class EDD(nn.Module):
         """
         super(EDD, self).__init__()
         self.max_seq_len = cfg.data.max_length
-        self.vocab_sz = cfg.embedding_length
+        self.vocab_size = cfg.embedding_length
 
         self.encoder = GRUEncoder(
-            self.vocab_sz,
+            self.vocab_size,
             cfg.model.emb_hid_dim,
             cfg.model.emb_dim,
             cfg.model.enc_rnn_dim,
@@ -84,18 +85,17 @@ class EDD(nn.Module):
             cfg.model.enc_dropout,
         )
 
-        # generator :
-        self.gen_emb = nn.Embedding(self.vocab_sz, cfg.model.emb_dim)
+        self.gen_emb = nn.Embedding(self.vocab_size, cfg.model.emb_dim)
         self.gen_rnn = nn.LSTM(cfg.model.enc_dim, cfg.model.gen_rnn_dim)
         self.gen_lin = nn.Sequential(
             nn.Dropout(cfg.model.gen_dropout),
-            nn.Linear(cfg.model.gen_rnn_dim, self.vocab_sz),
+            nn.Linear(cfg.model.gen_rnn_dim, self.vocab_size),
             nn.LogSoftmax(dim=-1),
         )
 
         # pair-wise discriminator :
         self.dis_emb_layer = nn.Sequential(
-            nn.Linear(self.vocab_sz, cfg.model.emb_hid_dim),
+            nn.Linear(self.vocab_size, cfg.model.emb_hid_dim),
             nn.Threshold(0.000001, 0),
             nn.Linear(cfg.model.emb_hid_dim, cfg.model.emb_dim),
             nn.Threshold(0.000001, 0),
@@ -106,7 +106,7 @@ class EDD(nn.Module):
             nn.Linear(cfg.model.enc_rnn_dim, cfg.model.enc_dim),
         )
 
-    def forward(self, phrase, sim_phrase=None, train=False):
+    def forward(self, phrase, sim_phrase):
         """
         forward pass
         inputs :-
@@ -119,47 +119,47 @@ class EDD(nn.Module):
         enc_sim_phrase : encoded sim_phrase, shape=(batch size, enc_dim)
         """
 
+        enc_phrase = self.encoder(phrase)
+
+        # Generator
+        embedding_out = self.gen_emb(sim_phrase)
+        rnn_out, _ = self.gen_rnn(torch.cat([enc_phrase, embedding_out[:-1, :]], dim=0))
+        out = self.gen_lin(rnn_out)
+
+        # propagated from shared discriminator to calculate
+        # pair-wise discriminator loss
+        enc_sim_phrase = self.dis_lin(
+            self.dis_rnn(self.dis_emb_layer(one_hot(sim_phrase, self.vocab_size)))[1]
+        )
+        enc_out = self.dis_lin(self.dis_rnn(self.dis_emb_layer(torch.exp(out)))[1])
+
+        enc_out.squeeze_(0)
+        enc_sim_phrase.squeeze_(0)
+        return out, enc_out, enc_sim_phrase
+
+    def generate(self, phrase, sim_phrase=None):
         if sim_phrase is None:
             sim_phrase = phrase
+        
+        enc_phrase = self.encoder(phrase)
 
-        if train:
-            enc_phrase = self.encoder(phrase)
+        # generate similar phrase using teacher forcing
+        words = []
+        for _ in range(self.max_seq_len):
+            word, _ = self.gen_rnn(enc_phrase)
+            word = self.gen_lin(word)
+            words.append(word)
+            word = torch.multinomial(torch.exp(word[0]), 1)
+            word = word.t()
+            enc_phrase = self.gen_emb(word)
+        out = torch.cat(words, dim=0)
 
-            # generate similar phrase using teacher forcing
-            emb_sim_phrase_gen = self.gen_emb(sim_phrase)
-            out_rnn, _ = self.gen_rnn(
-                torch.cat([enc_phrase, emb_sim_phrase_gen[:-1, :]], dim=0)
-            )
-            out = self.gen_lin(out_rnn)
-
-            # propagated from shared discriminator to calculate
-            # pair-wise discriminator loss
-            enc_sim_phrase = self.dis_lin(
-                self.dis_rnn(self.dis_emb_layer(one_hot(sim_phrase, self.vocab_sz)))[1]
-            )
-            enc_out = self.dis_lin(self.dis_rnn(self.dis_emb_layer(torch.exp(out)))[1])
-
-        else:
-            enc_phrase = self.encoder(phrase)
-
-            # generate similar phrase using teacher forcing
-            words = []
-            h = None
-            for _ in range(self.max_seq_len):
-                word, h = self.gen_rnn(enc_phrase, hx=h)
-                word = self.gen_lin(word)
-                words.append(word)
-                word = torch.multinomial(torch.exp(word[0]), 1)
-                word = word.t()
-                enc_phrase = self.gen_emb(word)
-            out = torch.cat(words, dim=0)
-
-            # propagated from shared discriminator to calculate
-            # pair-wise discriminator loss
-            enc_sim_phrase = self.dis_lin(
-                self.dis_rnn(self.dis_emb_layer(one_hot(sim_phrase, self.vocab_sz)))[1]
-            )
-            enc_out = self.dis_lin(self.dis_rnn(self.dis_emb_layer(torch.exp(out)))[1])
+        # propagated from shared discriminator to calculate
+        # pair-wise discriminator loss
+        enc_sim_phrase = self.dis_lin(
+            self.dis_rnn(self.dis_emb_layer(one_hot(sim_phrase, self.vocab_size)))[1]
+        )
+        enc_out = self.dis_lin(self.dis_rnn(self.dis_emb_layer(torch.exp(out)))[1])
 
         enc_out.squeeze_(0)
         enc_sim_phrase.squeeze_(0)
@@ -255,7 +255,7 @@ def evaluate_step(
 
         src_ids = batch["input_ids"]
         tgt = batch["tgt"]
-        out, _, _ = model(src_ids.t())
+        out, _, _ = model.generate(src_ids.t())
         y_pred = torch.argmax(out, dim=-1).t()
 
         preds = ids_to_clean_text(y_pred)
