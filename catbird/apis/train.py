@@ -5,7 +5,6 @@ from logging import Logger
 from typing import Optional
 
 import ignite.distributed as idist
-import torch
 import torch.nn as nn
 import torch.optim as optim
 from catbird.core import Config  # type: ignore

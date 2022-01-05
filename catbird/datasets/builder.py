@@ -39,7 +39,7 @@ def build_dataset(
             val_dataset = QuoraDataset(cfg, "val", val_data, tokenizer)
             return train_dataset, val_dataset
         else:
-            return train_dataset
+            return (train_dataset,)
     else:
         raise NameError(
             "The dataset name does not match any of our currently available options."

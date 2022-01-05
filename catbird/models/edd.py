@@ -20,7 +20,6 @@ class GRUEncoder(nn.Module):
     def __init__(
         self,
         vocab_size: int,
-        embedding_hidden_dims: int,
         embedding_out_dims: int,
         encoder_hidden_dims: int,
         encoder_out_dims: int,
@@ -29,12 +28,7 @@ class GRUEncoder(nn.Module):
         super(GRUEncoder, self).__init__()
         self.vocab_size = vocab_size
 
-        self.embedding_layer = nn.Sequential(
-            nn.Linear(self.vocab_size, embedding_hidden_dims),
-            nn.Threshold(0.000001, 0),
-            nn.Linear(embedding_hidden_dims, embedding_out_dims),
-            nn.Threshold(0.000001, 0),
-        )
+        self.embedding_layer = nn.Embedding(self.vocab_size, embedding_out_dims)
         self.gru_encoder = nn.GRU(embedding_out_dims, encoder_hidden_dims)
         self.linear = nn.Sequential(
             nn.Dropout(dropout_proba), nn.Linear(encoder_hidden_dims, encoder_out_dims),
@@ -49,9 +43,8 @@ class GRUEncoder(nn.Module):
         Returns:
             torch.Tensor: Output of last linear layer.
         """
-
-        one_hot_input = one_hot(input, self.vocab_size)
-        embedding_out = self.embedding_layer(one_hot_input)
+        embedding_out = self.embedding_layer(input)
+        
         encoder_out = self.gru_encoder(embedding_out)[1]
         out = self.linear(encoder_out)
 
@@ -73,12 +66,11 @@ class EDD(nn.Module):
             cfg (Config): Config instance with configurations.
         """
         super(EDD, self).__init__()
-        self.max_seq_len = cfg.data.max_length
+        self.max_length = cfg.data.max_length
         self.vocab_size = cfg.embedding_length
 
         self.encoder = GRUEncoder(
             self.vocab_size,
-            cfg.model.emb_hid_dim,
             cfg.model.emb_dim,
             cfg.model.enc_rnn_dim,
             cfg.model.enc_dim,
@@ -87,7 +79,7 @@ class EDD(nn.Module):
 
         self.gen_emb = nn.Embedding(self.vocab_size, cfg.model.emb_dim)
         self.gen_rnn = nn.LSTM(cfg.model.enc_dim, cfg.model.gen_rnn_dim)
-        self.gen_lin = nn.Sequential(
+        self.generator_linear = nn.Sequential(
             nn.Dropout(cfg.model.gen_dropout),
             nn.Linear(cfg.model.gen_rnn_dim, self.vocab_size),
             nn.LogSoftmax(dim=-1),
@@ -123,8 +115,8 @@ class EDD(nn.Module):
 
         # Generator
         embedding_out = self.gen_emb(sim_phrase)
-        rnn_out, _ = self.gen_rnn(torch.cat([enc_phrase, embedding_out[:-1, :]], dim=0))
-        out = self.gen_lin(rnn_out)
+        hidden_state, _ = self.gen_rnn(torch.cat([enc_phrase, embedding_out[:-1, :]], dim=0))
+        out = self.generator_linear(hidden_state)
 
         # propagated from shared discriminator to calculate
         # pair-wise discriminator loss
@@ -138,6 +130,8 @@ class EDD(nn.Module):
         return out, enc_out, enc_sim_phrase
 
     def generate(self, phrase, sim_phrase=None):
+        batch_size = phrase.size(0)
+        
         if sim_phrase is None:
             sim_phrase = phrase
         
@@ -145,9 +139,9 @@ class EDD(nn.Module):
 
         # generate similar phrase using teacher forcing
         words = []
-        for _ in range(self.max_seq_len):
+        for _ in range(batch_size):
             word, _ = self.gen_rnn(enc_phrase)
-            word = self.gen_lin(word)
+            word = self.generator_linear(word)
             words.append(word)
             word = torch.multinomial(torch.exp(word[0]), 1)
             word = word.t()
@@ -184,7 +178,7 @@ def train_step(
     """
 
     def routine(engine, batch):
-        if cfg.get("tokenizer", None):
+        if cfg.data.get("tokenizer", None):
             ignore_index = -100
         else:
             ignore_index = cfg.pad_token_id
@@ -204,7 +198,7 @@ def train_step(
         with autocast(enabled=cfg.train.with_amp):
             out, enc_out, enc_sim_phrase = model(src_ids.t(), tgt.t())
 
-            loss1 = loss_fct(out.permute(1, 2, 0), tgt)
+            loss1 = loss_fct(out.view(-1, out.size(-1)), sample_batch["tgt"].view(-1))
             loss2 = JointEmbeddingLoss(enc_out, enc_sim_phrase)
             loss = loss1 + loss2
 
@@ -255,8 +249,8 @@ def evaluate_step(
 
         src_ids = batch["input_ids"]
         tgt = batch["tgt"]
-        out, _, _ = model.generate(src_ids.t())
-        y_pred = torch.argmax(out, dim=-1).t()
+        out, _, _ = model.generate(src_ids)
+        y_pred = torch.argmax(out, dim=-1)
 
         preds = ids_to_clean_text(y_pred)
         tgt = ids_to_clean_text(tgt)
@@ -310,23 +304,3 @@ def initialize(cfg: Config) -> Tuple[nn.Module, optim.Optimizer]:
     optimizer = idist.auto_optim(optimizer)
 
     return model, optimizer
-
-
-if __name__ == "__main__":
-    from catbird.core import Config
-    from catbird.datasets import build_dataset, get_dataloaders
-    from catbird.tokenizers import build_tokenizer
-
-    cfg = Config.fromfile("configs/edl_quora.yaml")
-
-    tokenizer = build_tokenizer(cfg)
-    cfg.embedding_length = len(tokenizer)
-
-    datasets = build_dataset(cfg, tokenizer, validate=False)
-    dataloaders = get_dataloaders(cfg, *datasets)
-
-    sample_batch = next(iter(dataloaders[0]))  # [train.batch_size, data.max_length]
-
-    model = EDD(cfg)
-
-    print(model(sample_batch["input_ids"], sample_batch["tgt"]))
