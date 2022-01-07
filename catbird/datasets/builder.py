@@ -1,24 +1,23 @@
 """Factory to build datasets."""
 
-from typing import Any, Tuple
+from pathlib import Path
+from typing import Tuple
 
 import ignite.distributed as idist
 from catbird.core import Config, load  # type: ignore
 from ignite.utils import setup_logger
 from torch.utils.data import DataLoader, Dataset
 from transformers import AutoTokenizer
-from pathlib import Path
 
 from .quora import QuoraDataset as QuoraDataset
 
 
-def build_dataset(
-    cfg: Config, tokenizer: AutoTokenizer, **kwargs: Any
-) -> Tuple[Dataset]:
+def build_dataset(cfg: Config, split: str, tokenizer: AutoTokenizer) -> Tuple[Dataset]:
     """Abstraction to build datasets based on the given configurations.
 
     Args:
         cfg (Config): configuration file
+        split (str): split name. Either train or val
         tokenizer (AutoTokenizer): HuggingFace tokenizer
 
     Raises:
@@ -32,48 +31,32 @@ def build_dataset(
     [logger.info(f"{k} - {v}") for k, v in cfg.data.items()]
 
     if cfg.dataset_name.lower() == "quora":
-        train_data = load(Path(cfg.data_root) / "quora_train.pkl")
-        train_dataset = QuoraDataset(cfg, "train", train_data, tokenizer)
-        if kwargs.pop("validate", False):
-            val_data = load(Path(cfg.data_root) / "quora_val.pkl")
-            val_dataset = QuoraDataset(cfg, "val", val_data, tokenizer)
-            return train_dataset, val_dataset
-        else:
-            return (train_dataset,)
+        data = load(Path(cfg.data_root) / f"quora_{split}.pkl")
+        dataset = QuoraDataset(cfg, split, data, tokenizer)
+        return dataset
     else:
         raise NameError(
             "The dataset name does not match any of our currently available options."
         )
 
 
-def get_dataloaders(
-    cfg: Config, train_dataset: Dataset, val_dataset: Dataset = None
-) -> Tuple[DataLoader]:
+def get_dataloader(cfg: Config, split: str, dataset: Dataset) -> DataLoader:
     """Get dataloaders of given datasets.
 
     Args:
         cfg (Config): configuration file
-        train_dataset (Dataset): train dataset
-        val_dataset (Dataset, optional): validation dataset. Defaults to None.
+        split (str): split name. Either train or val
+        dataset (Dataset): Pytorch Dataset instance
 
     Returns:
-        Tuple[DataLoader]: tuple with train or train and validation dataloaders
+        DataLoader: tuple with train or train and validation dataloaders
     """
     # Setup data loader also adapted to distributed config: nccl, gloo, xla-tpu
-    train_loader = idist.auto_dataloader(
-        train_dataset,
-        batch_size=cfg.train.batch_size,
+    loader = idist.auto_dataloader(
+        dataset,
+        batch_size=cfg.train.batch_size * (1 if split == "train" else 2),
         num_workers=cfg.num_workers,
-        shuffle=True,
-        drop_last=True,
+        shuffle=(True if split == "train" else False),
+        drop_last=(True if split == "train" else False),
     )
-    if val_dataset:
-        val_loader = idist.auto_dataloader(
-            val_dataset,
-            batch_size=2 * cfg.train.batch_size,
-            num_workers=cfg.num_workers,
-            shuffle=False,
-        )
-        return (train_loader, val_loader)  # type: ignore
-    else:
-        return (train_loader,)  # type: ignore
+    return loader

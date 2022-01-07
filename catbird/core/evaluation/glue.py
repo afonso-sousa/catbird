@@ -1,6 +1,5 @@
 from typing import Any, Callable, Sequence, Tuple, Union
 
-import nltk
 import torch
 from datasets import load_metric
 from ignite.exceptions import NotComputableError
@@ -14,16 +13,16 @@ class GLUE(Metric):
         device: Union[str, torch.device] = torch.device("cpu"),
     ):
         super(GLUE, self).__init__(output_transform=output_transform, device=device)
-        self._ter = load_metric("ter")
+        self._glue = load_metric("glue", "qqp")
 
-    def _sentence_ter(
+    def _sentence_glue(
         self, references: Sequence[Sequence[Any]], candidates: Sequence[Any]
     ) -> float:
-        results = self._ter.compute(predictions=[candidates], references=[references])
+        results = self._glue.compute(predictions=[candidates], references=[references])
         return results["score"]
 
     def reset(self) -> None:
-        self._sum_of_ter = torch.tensor(0.0, dtype=torch.double, device=self._device)
+        self._sum_of_glue = torch.tensor(0.0, dtype=torch.double, device=self._device)
         self._num_sentences = 0
 
     def update(
@@ -32,16 +31,16 @@ class GLUE(Metric):
         y_pred, y = output
 
         for refs, hyp in zip(y, y_pred):
-            self._sum_of_ter += self._sentence_ter(references=refs, candidates=hyp)
+            self._sum_of_glue += self._sentence_glue(references=refs, candidates=hyp)
             self._num_sentences += 1
 
     def compute(self) -> None:
         if self._num_sentences == 0:
             raise NotComputableError(
-                "TER must have at least one example before it can be computed."
+                "GLUE must have at least one example before it can be computed."
             )
 
-        return self._sum_of_ter / self._num_sentences
+        return self._sum_of_glue / self._num_sentences
 
 
 if __name__ == "__main__":
@@ -63,19 +62,20 @@ if __name__ == "__main__":
 
     from datasets import load_metric
 
-    ter = load_metric("ter")
-    print(ter.inputs_description)
+    glue = load_metric("glue", "qqp")
+    print(glue.inputs_description)
 
-    results = ter.compute(predictions=y_pred1, references=y1)
+    results = glue.compute(predictions=y_pred1, references=y1)
 
-    print(round(results["score"], 4))
+    print(results)
+    # print(round(results["score"], 4))
 
-    my_ter = TER()
-    my_ter.update((y_pred1, y1))
-    print(my_ter.compute())
+    my_glue = GLUE()
+    my_glue.update((y_pred1, y1))
+    print(my_glue.compute())
 
-    assert round(my_ter.compute(), 4) == round(
-        ter.compute(predictions=y_pred1, references=y1)["score"], 4
+    assert round(my_glue.compute(), 4) == round(
+        glue.compute(predictions=y_pred1, references=y1)["score"], 4
     )
 
-    print(round(my_ter.compute().item(), 4))
+    print(round(my_glue.compute().item(), 4))

@@ -22,7 +22,9 @@ def quora_data_prep(data_path, save_path=None, split_perc=0.3):
         save_path = Path(save_path)
 
     quora_df = pd.read_csv(data_path / "quora_duplicate_questions.tsv", sep="\t")
+    print(f"Original Quora dataset has {len(quora_df)} entries.")
     quora_df = quora_df[quora_df["is_duplicate"] == 1]
+    print(f"After non-duplicate dropped, Quora dataset has {len(quora_df)} entries.")
     quora_df = quora_df.drop(["id", "qid1", "qid2", "is_duplicate"], axis=1)
     quora_df = quora_df.rename(columns={"question1": "src", "question2": "tgt"})
     quora = quora_df.to_dict("records")
@@ -32,10 +34,12 @@ def quora_data_prep(data_path, save_path=None, split_perc=0.3):
     val_data = quora[int(len(quora) * (1 - split_perc)) :]
 
     train_filename = save_path / "quora_train.pkl"
-    print(f"Quora train split is saved to '{train_filename}'")
+    print(
+        f"Quora train split ({len(train_data)} entries) is saved to '{train_filename}'"
+    )
     dump(train_data, train_filename)
     val_filename = save_path / "quora_val.pkl"
-    print(f"Quora val split is saved to '{val_filename}'")
+    print(f"Quora val split ({len(val_data)} entries) is saved to '{val_filename}'")
     dump(val_data, val_filename)
 
 

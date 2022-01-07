@@ -31,6 +31,9 @@ def train_step(
     """
 
     def routine(engine, batch):
+        accumulation_steps = cfg.train.get("accumulation_steps", 1)
+        with_amp = cfg.train.get("with_amp", False)
+        
         model.train()
 
         if batch["tgt"].device != device:
@@ -43,14 +46,14 @@ def train_step(
         src_attention_mask = batch["attention_mask"]
         tgt = batch["tgt"]
 
-        with autocast(enabled=cfg.train.with_amp):
+        with autocast(enabled=with_amp):
             y = model(input_ids=src_ids, attention_mask=src_attention_mask, labels=tgt)
             loss = y["loss"]
-            loss /= cfg.train.accumulation_steps
+            loss /= accumulation_steps
 
         scaler.scale(loss).backward()
 
-        if engine.state.iteration % cfg.train.accumulation_steps == 0:
+        if engine.state.iteration % accumulation_steps == 0:
             scaler.step(optimizer)
             scaler.update()
             optimizer.zero_grad()

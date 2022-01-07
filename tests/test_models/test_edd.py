@@ -2,7 +2,7 @@ import unittest
 
 import torch
 from catbird.core import Config
-from catbird.datasets import build_dataset, get_dataloaders
+from catbird.datasets import build_dataset, get_dataloader
 from catbird.models.edd import EDD
 from catbird.models.utils import JointEmbeddingLoss
 from catbird.tokenizers import build_tokenizer
@@ -17,9 +17,9 @@ class TestEDD(unittest.TestCase):
         cls.cfg.embedding_length = len(cls.tokenizer)
         cls.cfg.pad_token_id = cls.tokenizer.pad_token_id
 
-        datasets = build_dataset(cls.cfg, cls.tokenizer, validate=False)
-        dataloaders = get_dataloaders(cls.cfg, *datasets)
-        sample_batch = next(iter(dataloaders[0]))  # [train.batch_size, data.max_length]
+        dataset = build_dataset(cls.cfg, "val", cls.tokenizer)
+        dataloader = get_dataloader(cls.cfg, "val", dataset)
+        sample_batch = next(iter(dataloader))  # [train.batch_size, data.max_length]
         cls.src_ids = sample_batch["input_ids"]
         cls.tgt = sample_batch["tgt"]
 
@@ -29,7 +29,7 @@ class TestEDD(unittest.TestCase):
         out, enc_out, enc_sim_phrase = self.model(self.src_ids, self.tgt)
 
         assert out.shape == (
-            self.cfg.train.batch_size,
+            self.cfg.train.batch_size * 2,
             self.cfg.data.max_length,
             self.cfg.embedding_length,
         )
@@ -52,7 +52,7 @@ class TestEDD(unittest.TestCase):
             )
             return list(map(str.strip, gen_text))
 
-        out, _, _ = self.model.generate(self.src_ids)
+        out = self.model.generate(self.src_ids)
         y_pred = torch.argmax(out, dim=-1)
 
         preds = ids_to_clean_text(y_pred)

@@ -10,7 +10,7 @@ import torch.optim as optim
 from catbird.core import Config  # type: ignore
 from ignite.contrib.engines import common
 from ignite.engine import Engine
-from torch.cuda.amp import GradScaler, autocast
+from torch.cuda.amp import GradScaler
 from torch.utils.data.distributed import DistributedSampler
 from transformers import AutoTokenizer
 

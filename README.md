@@ -48,7 +48,7 @@ We use the [HuggingFace Datasets library](https://huggingface.co/docs/datasets/)
 
 Prepare Quora data by running:
 ```shell
-poetry run python tools/create_data.py quora --root-path ./data/quora --out-dir ./data/quora
+poetry run python tools/preprocessing/create_data.py quora --root-path ./data/quora --out-dir ./data/quora
 ```
 ### Train
 

@@ -3,9 +3,11 @@ from importlib import import_module
 from typing import Tuple
 
 import ignite.distributed as idist
+import torch
 import torch.nn as nn
 import torch.optim as optim
 from catbird.core import Config  # type: ignore
+from ignite.handlers import Checkpoint
 from ignite.utils import setup_logger
 
 
@@ -27,4 +29,10 @@ def build_generator(cfg: Config) -> Tuple[nn.Module, optim.Optimizer]:
     model_name = cfg.model.name.lower().split("-")[0]
     module = import_module(f"catbird.models.{model_name}")
 
-    return getattr(module, "initialize")(cfg)
+    model, optimizer = getattr(module, "initialize")(cfg)
+
+    if cfg.resume_from:
+        checkpoint = torch.load(cfg.resume_from)
+        Checkpoint.load_objects(to_load={"model": model}, checkpoint=checkpoint)
+
+    return model, optimizer

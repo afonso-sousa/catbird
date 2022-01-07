@@ -44,7 +44,7 @@ class GRUEncoder(nn.Module):
             torch.Tensor: Output of last linear layer.
         """
         embedding_out = self.embedding_layer(input)
-        
+
         encoder_out = self.gru_encoder(embedding_out)[1]
         out = self.linear(encoder_out)
 
@@ -115,7 +115,9 @@ class EDD(nn.Module):
 
         # Generator
         embedding_out = self.gen_emb(sim_phrase)
-        hidden_state, _ = self.gen_rnn(torch.cat([enc_phrase, embedding_out[:-1, :]], dim=0))
+        hidden_state, _ = self.gen_rnn(
+            torch.cat([enc_phrase, embedding_out[:-1, :]], dim=0)
+        )
         out = self.generator_linear(hidden_state)
 
         # propagated from shared discriminator to calculate
@@ -131,10 +133,10 @@ class EDD(nn.Module):
 
     def generate(self, phrase, sim_phrase=None):
         batch_size = phrase.size(0)
-        
+
         if sim_phrase is None:
             sim_phrase = phrase
-        
+
         enc_phrase = self.encoder(phrase)
 
         # generate similar phrase using teacher forcing
@@ -148,16 +150,7 @@ class EDD(nn.Module):
             enc_phrase = self.gen_emb(word)
         out = torch.cat(words, dim=0)
 
-        # propagated from shared discriminator to calculate
-        # pair-wise discriminator loss
-        enc_sim_phrase = self.dis_lin(
-            self.dis_rnn(self.dis_emb_layer(one_hot(sim_phrase, self.vocab_size)))[1]
-        )
-        enc_out = self.dis_lin(self.dis_rnn(self.dis_emb_layer(torch.exp(out)))[1])
-
-        enc_out.squeeze_(0)
-        enc_sim_phrase.squeeze_(0)
-        return out, enc_out, enc_sim_phrase
+        return out
 
 
 def train_step(
@@ -178,6 +171,9 @@ def train_step(
     """
 
     def routine(engine, batch):
+        accumulation_steps = cfg.train.get("accumulation_steps", 1)
+        with_amp = cfg.train.get("with_amp", False)
+
         if cfg.data.get("tokenizer", None):
             ignore_index = -100
         else:
@@ -195,18 +191,18 @@ def train_step(
         src_ids = batch["input_ids"]
         tgt = batch["tgt"]
 
-        with autocast(enabled=cfg.train.with_amp):
-            out, enc_out, enc_sim_phrase = model(src_ids.t(), tgt.t())
+        with autocast(enabled=with_amp):
+            out, enc_out, enc_sim_phrase = model(src_ids, tgt)
 
-            loss1 = loss_fct(out.view(-1, out.size(-1)), sample_batch["tgt"].view(-1))
+            loss1 = loss_fct(out.view(-1, out.size(-1)), tgt.view(-1))
             loss2 = JointEmbeddingLoss(enc_out, enc_sim_phrase)
             loss = loss1 + loss2
 
-            loss /= cfg.train.accumulation_steps
+            loss /= accumulation_steps
 
         scaler.scale(loss).backward()
 
-        if engine.state.iteration % cfg.train.accumulation_steps == 0:
+        if engine.state.iteration % accumulation_steps == 0:
             scaler.step(optimizer)
             scaler.update()
             optimizer.zero_grad()
@@ -249,7 +245,7 @@ def evaluate_step(
 
         src_ids = batch["input_ids"]
         tgt = batch["tgt"]
-        out, _, _ = model.generate(src_ids)
+        out = model.generate(src_ids)
         y_pred = torch.argmax(out, dim=-1)
 
         preds = ids_to_clean_text(y_pred)

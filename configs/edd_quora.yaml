@@ -12,11 +12,11 @@ data:
     dataset_length: -1
   val:
     train_test_split: 0.3
-    dataset_length: 100
+    dataset_length: 2000
 
 # train settings
 train:
-  num_epochs: 50
+  num_epochs: 70
   batch_size: 32
   learning_rate: 0.0001
   weight_decay: 0.01
