@@ -33,7 +33,7 @@ poetry install
 ```
 
 ## Dataset Preparation
-For now, we only work with the [Quora Question Pairs dataset](https://quoradata.quora.com/First-Quora-Dataset-Release-Question-Pairs). It is recommended to download and extract the datasets somewhere outside the project directory and symlink the dataset root to `$CATBIRD/data` as below. If your folder structure is different, you may need to change the corresponding paths in config files.
+For now, we support [Quora Question Pairs dataset](https://quoradata.quora.com/First-Quora-Dataset-Release-Question-Pairs), [WikiAnswers](http://knowitall.cs.washington.edu/paralex/) and [MSCOCO](https://cocodataset.org/#download). It is recommended to download and extract the datasets somewhere outside the project directory and symlink the dataset root to `$CATBIRD/data` as below. If your folder structure is different, you may need to change the corresponding paths in config files.
 
 ```text
 catbird
@@ -43,13 +43,29 @@ catbird
 ├── data
 │   ├── quora
 │   │   ├── quora_duplicate_questions.tsv
+│   ├── wikianswers
+│   │   ├── questions.txt
+│   ├── mscoco
+│   │   ├── captions_train2014.json
+│   │   ├── captions_val2014.json
 ```
-We use the [HuggingFace Datasets library](https://huggingface.co/docs/datasets/) to load the datasets.
 
-Prepare Quora data by running:
+Donwload Quora data [HERE](https://quoradata.quora.com/First-Quora-Dataset-Release-Question-Pairs). Prepare Quora data by running:
 ```shell
 poetry run python tools/preprocessing/create_data.py quora --root-path ./data/quora --out-dir ./data/quora
 ```
+
+Download WikiAnswers [HERE](http://knowitall.cs.washington.edu/paralex/). Prepare WikiAnswers data by running:
+```shell
+poetry run python tools/preprocessing/create_data.py wikianswers --root-path ./data/wikianswers --out-dir ./data/wikianswers
+```
+
+Download MSCOCO [HERE](https://cocodataset.org/#download), under the link '2014 Train/Val annotations'. Prepare MSCOCO data by running:
+```shell
+poetry run python tools/preprocessing/create_data.py mscoco --root-path ./data/mscoco --out-dir ./data/mscoco --split train
+poetry run python tools/preprocessing/create_data.py mscoco --root-path ./data/mscoco --out-dir ./data/mscoco --split val
+```
+
 ### Train
 
 ```shell

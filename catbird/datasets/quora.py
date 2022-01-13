@@ -42,9 +42,9 @@ class QuoraDataset(Dataset):
         Returns:
             dict[str, torch.Tensor]: dictionary with src and target sentences as embedding tensors
         """
-        src_text = [self.task_prefix + str(self.data[idx]["src"]) + " </s>"]
+        src_text = [self.task_prefix + str(self.data[idx]["src"])]
 
-        tgt_text = [str(self.data[idx]["tgt"]) + " </s>"]
+        tgt_text = [str(self.data[idx]["tgt"])]
         input_txt_tokenized = self.tokenizer(
             src_text, max_length=self.max_length, padding="max_length", truncation=True
         )
