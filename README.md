@@ -4,6 +4,7 @@
     </p>
 
   [![License: MIT](https://img.shields.io/badge/License-MIT-brightgreen.svg)](https://opensource.org/licenses/MIT)
+  [![codecov](https://img.shields.io/codecov/c/gh/AfonsoSalgadoSousa/catbird)](https://codecov.io/gh/AfonsoSalgadoSousa/catbird)
 </div>
 
 `Catbird` is an open source paraphrase generation toolkit based on PyTorch.
