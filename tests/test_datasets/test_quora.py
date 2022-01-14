@@ -64,7 +64,7 @@ class TestEDD(unittest.TestCase):
 
             if i + 1 != num_val_batches:
                 assert src_ids.shape == (
-                    self.cfg.train.batch_size,
+                    2 * self.cfg.train.batch_size,
                     self.cfg.data.max_length,
                 )
                 assert src_ids.shape == tgt.shape

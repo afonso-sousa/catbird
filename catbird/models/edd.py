@@ -11,7 +11,8 @@ from torch.cuda.amp import GradScaler, autocast
 from torch.nn import CrossEntropyLoss
 from transformers import AutoTokenizer
 
-from .utils import JointEmbeddingLoss, freeze_params, one_hot
+from .utils import freeze_params, one_hot
+from .losses import sent_emb_loss
 
 
 class GRUEncoder(nn.Module):
@@ -44,7 +45,10 @@ class GRUEncoder(nn.Module):
             torch.Tensor: Output of last linear layer.
         """
         embedding_out = self.embedding_layer(input)
-
+        
+        # B x T x C -> T x B x C
+        embedding_out = embedding_out.transpose(0, 1)
+        
         encoder_out = self.gru_encoder(embedding_out)[1]
         out = self.linear(encoder_out)
 
@@ -98,60 +102,68 @@ class EDD(nn.Module):
             nn.Linear(cfg.model.enc_rnn_dim, cfg.model.enc_dim),
         )
 
-    def forward(self, phrase, sim_phrase):
-        """
-        forward pass
-        inputs :-
-        phrase : given phrase , shape = (max sequence length, batch size)
-        sim_phrase : (if train == True), shape = (max seq length, batch sz)
-        train : if true teacher forcing is used to train the module
-        outputs :-
-        out : generated paraphrase, shape = (max sequence length, batch size, )
-        enc_out : encoded generated paraphrase, shape=(batch size, enc_dim)
-        enc_sim_phrase : encoded sim_phrase, shape=(batch size, enc_dim)
-        """
+    def forward(self, input: torch.Tensor, target: torch.Tensor) -> Tuple[torch.Tensor]:
+        """Forward pass method.
 
-        enc_phrase = self.encoder(phrase)
+        Args:
+            input (torch.Tensor): input batch (batch_size, max_length)
+            target (torch.Tensor): target batch (batch_size, max_length)
+
+        Returns:
+            [Tuple[torch.Tensor]]: generated paraphrase. shape (batch size, max length, vocab length)
+                                   encoded generated paraphrase, shape=(batch size, enc_dim)
+                                   encoded target, shape=(batch size, enc_dim)
+
+        """
+        enc_input = self.encoder(input)
+        
+        # B x T x C -> T x B x C
+        target = target.transpose(0, 1)
 
         # Generator
-        embedding_out = self.gen_emb(sim_phrase)
+        embedding_out = self.gen_emb(target)
         hidden_state, _ = self.gen_rnn(
-            torch.cat([enc_phrase, embedding_out[:-1, :]], dim=0)
+            torch.cat([enc_input, embedding_out[:-1, :]], dim=0)
         )
         out = self.generator_linear(hidden_state)
 
         # propagated from shared discriminator to calculate
         # pair-wise discriminator loss
-        enc_sim_phrase = self.dis_lin(
-            self.dis_rnn(self.dis_emb_layer(one_hot(sim_phrase, self.vocab_size)))[1]
+        enc_target = self.dis_lin(
+            self.dis_rnn(self.dis_emb_layer(one_hot(target, self.vocab_size)))[1]
         )
         enc_out = self.dis_lin(self.dis_rnn(self.dis_emb_layer(torch.exp(out)))[1])
 
-        enc_out.squeeze_(0)
-        enc_sim_phrase.squeeze_(0)
-        return out, enc_out, enc_sim_phrase
+        out = out.transpose(0, 1)
+        enc_out = enc_out.squeeze(0)
+        enc_target = enc_target.squeeze(0)
+        
+        return out, enc_out, enc_target
 
-    def generate(self, phrase, sim_phrase=None):
-        batch_size = phrase.size(0)
+    def generate(self, input, target=None):
+        # batch_size = input.size(0)
 
-        if sim_phrase is None:
-            sim_phrase = phrase
+        if target is None:
+            target = input
 
-        enc_phrase = self.encoder(phrase)
+        enc_input = self.encoder(input)
 
         # generate similar phrase using teacher forcing
         words = []
-        for _ in range(batch_size):
-            word, _ = self.gen_rnn(enc_phrase)
+        for _ in range(self.max_length):
+            word, _ = self.gen_rnn(enc_input)
             word = self.generator_linear(word)
             words.append(word)
             word = torch.multinomial(torch.exp(word[0]), 1)
             word = word.t()
-            enc_phrase = self.gen_emb(word)
-        out = torch.cat(words, dim=0)
+            enc_input = self.gen_emb(word)
+        out = torch.cat(words, dim=0).transpose(0, 1)
 
         return out
 
+    @property
+    def get_encoder(self):
+        return self.encoder
 
 def train_step(
     cfg: Config,
@@ -192,10 +204,15 @@ def train_step(
         tgt = batch["tgt"]
 
         with autocast(enabled=with_amp):
-            out, enc_out, enc_sim_phrase = model(src_ids, tgt)
+            out, enc_out, enc_target = model(src_ids, tgt)
 
-            loss1 = loss_fct(out.view(-1, out.size(-1)), tgt.view(-1))
-            loss2 = JointEmbeddingLoss(enc_out, enc_sim_phrase)
+            loss1 = loss_fct(out.reshape(-1, out.size(-1)), tgt.reshape(-1))
+            print(enc_out.shape)
+            print(enc_target.shape)
+            loss2 = sent_emb_loss(enc_out, enc_target)
+            print(loss2)
+            import sys
+            sys.exit()
             loss = loss1 + loss2
 
             loss /= accumulation_steps
@@ -293,7 +310,7 @@ def initialize(cfg: Config) -> Tuple[nn.Module, optim.Optimizer]:
         },
     ]
     if cfg.model.freeze_encoder:
-        freeze_params(model)
+        freeze_params(model.get_encoder())
 
     model = idist.auto_model(model)
     optimizer = optim.AdamW(optimizer_grouped_parameters, lr=lr)
