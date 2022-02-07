@@ -1,0 +1,44 @@
+# general config settings
+output_path: "./work_dirs"
+print_output_every: 50
+num_workers: 4
+
+# dataset settings
+dataset_name: "Quora"
+data_root: "data/quora/"
+data:
+  max_length: 80
+  train:
+    dataset_length: -1
+  val:
+    train_test_split: 0.3
+    dataset_length: 2000
+
+# train settings
+train:
+  num_epochs: 70
+  batch_size: 32
+  learning_rate: 0.0001
+  weight_decay: 0.01
+  epoch_length: 500
+  accumulation_steps: 1
+  with_amp: False
+
+# model settings
+model:
+  name: "LSTM"
+  dropout: 0.1
+  encoder_embed_dim: 512
+  encoder_hidden_size: 512
+  encoder_layers: 1
+  encoder_bidirectional: False
+  encoder_dropout_in: 0.1
+  encoder_dropout_out: 0.1
+  decoder_embed_dim: 512
+  decoder_hidden_size: 512
+  decoder_layers: 1
+  decoder_out_embed_dim: 512
+  decoder_attention: "1"
+  decoder_dropout_in: 0.1
+  decoder_dropout_out: 0.1
+  adaptive_softmax_cutoff: "10000,50000,200000"

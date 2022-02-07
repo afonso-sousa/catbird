@@ -7,6 +7,7 @@ import ignite.distributed as idist
 from catbird.apis import create_evaluator, create_trainer
 from catbird.core import (Config, log_basic_info, log_metrics_eval,
                           mkdir_or_exist)
+from catbird.core import build_optimizer
 from catbird.datasets import build_dataset, get_dataloader
 from catbird.models import build_generator
 from catbird.tokenizers import build_tokenizer
@@ -57,7 +58,8 @@ def training(local_rank, cfg, args):
     if args.resume_from is not None:
         cfg.resume_from = args.resume_from
         logger.info(f"Resuming model from '{cfg.resume_from}'")
-    model, optimizer = build_generator(cfg)
+    model = build_generator(cfg)
+    optimizer = build_optimizer(model, cfg.optimizer)
 
     trainer = create_trainer(cfg, model, optimizer, train_dataloader.sampler, logger)
 

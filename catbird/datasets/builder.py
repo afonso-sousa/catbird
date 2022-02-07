@@ -9,7 +9,7 @@ from ignite.utils import setup_logger
 from torch.utils.data import DataLoader, Dataset
 from transformers import AutoTokenizer
 
-from .quora import QuoraDataset as QuoraDataset
+from .sentence_pair_dataset import SentencePairDataset
 
 
 def build_dataset(cfg: Config, split: str, tokenizer: AutoTokenizer) -> Tuple[Dataset]:
@@ -30,9 +30,9 @@ def build_dataset(cfg: Config, split: str, tokenizer: AutoTokenizer) -> Tuple[Da
     logger.info(f"Loading {cfg.dataset_name} dataset")
     [logger.info(f"{k} - {v}") for k, v in cfg.data.items()]
 
-    if cfg.dataset_name.lower() == "quora":
-        data = load(Path(cfg.data_root) / f"quora_{split}.pkl")
-        dataset = QuoraDataset(cfg, split, data, tokenizer)
+    if cfg.dataset_name.lower() in ["quora", "mscoco"]:
+        data = load(Path(cfg.data_root) / f"{cfg.dataset_name.lower()}_{split}.pkl")
+        dataset = SentencePairDataset(cfg, split, data, tokenizer)
         return dataset
     else:
         raise NameError(

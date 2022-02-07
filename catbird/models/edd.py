@@ -4,8 +4,8 @@ from typing import Tuple, Union
 """Class with facilities to train and evaluate a Encoder-Decoder-Discriminator model."""
 import ignite.distributed as idist
 import torch
-import torch.nn as nn
-import torch.optim as optim
+from torch import nn
+from torch import optim
 from catbird.core import Config  # type: ignore
 from torch.cuda.amp import GradScaler, autocast
 from torch.nn import CrossEntropyLoss
@@ -207,12 +207,7 @@ def train_step(
             out, enc_out, enc_target = model(src_ids, tgt)
 
             loss1 = loss_fct(out.reshape(-1, out.size(-1)), tgt.reshape(-1))
-            print(enc_out.shape)
-            print(enc_target.shape)
             loss2 = sent_emb_loss(enc_out, enc_target)
-            print(loss2)
-            import sys
-            sys.exit()
             loss = loss1 + loss2
 
             loss /= accumulation_steps
@@ -278,7 +273,7 @@ def evaluate_step(
     return routine
 
 
-def initialize(cfg: Config) -> Tuple[nn.Module, optim.Optimizer]:
+def initialize(cfg: Config) -> nn.Module:
     """Initialize T5 conditional generator based on the given configurations.
 
     Args:
@@ -289,31 +284,31 @@ def initialize(cfg: Config) -> Tuple[nn.Module, optim.Optimizer]:
     """
     model = EDD(cfg)
 
-    lr = cfg.train.learning_rate * idist.get_world_size()
-    no_decay = ["bias", "LayerNorm.weight"]
-    optimizer_grouped_parameters = [
-        {
-            "params": [
-                p
-                for n, p in model.named_parameters()
-                if not any(nd_entry in n for nd_entry in no_decay)
-            ],
-            "weight_decay": cfg.train.weight_decay,
-        },
-        {
-            "params": [
-                p
-                for n, p in model.named_parameters()
-                if any(nd_entry in n for nd_entry in no_decay)
-            ],
-            "weight_decay": 0.0,
-        },
-    ]
+    # lr = cfg.train.learning_rate * idist.get_world_size()
+    # no_decay = ["bias", "LayerNorm.weight"]
+    # optimizer_grouped_parameters = [
+    #     {
+    #         "params": [
+    #             p
+    #             for n, p in model.named_parameters()
+    #             if not any(nd_entry in n for nd_entry in no_decay)
+    #         ],
+    #         "weight_decay": cfg.train.weight_decay,
+    #     },
+    #     {
+    #         "params": [
+    #             p
+    #             for n, p in model.named_parameters()
+    #             if any(nd_entry in n for nd_entry in no_decay)
+    #         ],
+    #         "weight_decay": 0.0,
+    #     },
+    # ]
     if cfg.model.freeze_encoder:
         freeze_params(model.get_encoder())
 
     model = idist.auto_model(model)
-    optimizer = optim.AdamW(optimizer_grouped_parameters, lr=lr)
-    optimizer = idist.auto_optim(optimizer)
+    # optimizer = optim.AdamW(optimizer_grouped_parameters, lr=lr)
+    # optimizer = idist.auto_optim(optimizer)
 
-    return model, optimizer
+    return model

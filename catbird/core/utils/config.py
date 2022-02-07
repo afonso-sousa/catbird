@@ -1,6 +1,8 @@
 """File with configuration classes."""
 
 import os
+import sys
+from importlib import import_module
 from pathlib import Path
 from typing import Any, Iterator, Optional, Union
 
@@ -74,10 +76,23 @@ class Config:
         """
         filename = Path(filename).resolve()
         check_file_exist(filename)
-        if filename.suffix in [".yml", ".yaml", ".json"]:
+        if filename.suffix == ".py":
+            module_name = filename.stem
+            if "." in module_name:
+                raise ValueError("Dots are not allowed in config file path.")
+            config_dir = Path(filename).parent
+            sys.path.insert(0, config_dir.as_posix())
+            mod = import_module(module_name)
+            sys.path.pop(0)
+            cfg_dict = {
+                name: value
+                for name, value in mod.__dict__.items()
+                if not name.startswith("__")
+            }
+        elif filename.suffix in [".yml", ".yaml", ".json"]:
             cfg_dict = load(filename)
         else:
-            raise IOError("Only yml/yaml/json types are supported!")
+            raise IOError("Only py/yml/yaml/json types are supported for now.")
         return Config(cfg_dict, filename=filename)
 
     def dump(

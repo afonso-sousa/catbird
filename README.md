@@ -1,6 +1,6 @@
 <div align="center">
     </p>
-    <img src="resources/catbird_logo.svg" width="200"/>
+    <img src="resources/catbird_banner.png"  width="400"/>
     </p>
 
   [![License: MIT](https://img.shields.io/badge/License-MIT-brightgreen.svg)](https://opensource.org/licenses/MIT)
@@ -8,6 +8,22 @@
 </div>
 
 `Catbird` is an open source paraphrase generation toolkit based on PyTorch.
+
+## Main Features
+This is an ongoing, one-person project. Hopefully you find it useful. If you do so, do not forget to leave a star &#127775;.
+
+### Datasets
+ * Quora Question Pairs
+ * MSCOCO
+
+### Metrics
+We support the following metrics. We currently use the HuggingFace implementations and wrap them to use with Pytorch Ignite.
+ * BLEU
+ * METEOR
+ * TER
+
+### Seq2Seq Techniques
+We support Teacher Forcing and for decoding both greedy and beam search.
 
 ## Quick Start
 
@@ -34,7 +50,7 @@ poetry install
 ```
 
 ## Dataset Preparation
-For now, we support [Quora Question Pairs dataset](https://quoradata.quora.com/First-Quora-Dataset-Release-Question-Pairs), [WikiAnswers](http://knowitall.cs.washington.edu/paralex/) and [MSCOCO](https://cocodataset.org/#download). It is recommended to download and extract the datasets somewhere outside the project directory and symlink the dataset root to `$CATBIRD/data` as below. If your folder structure is different, you may need to change the corresponding paths in config files.
+For now, we support [Quora Question Pairs dataset](https://quoradata.quora.com/First-Quora-Dataset-Release-Question-Pairs), and [MSCOCO](https://cocodataset.org/#download). It is recommended to download and extract the datasets somewhere outside the project directory and symlink the dataset root to `$CATBIRD/data` as below. If your folder structure is different, you may need to change the corresponding paths in config files.
 
 ```text
 catbird
@@ -44,8 +60,6 @@ catbird
 ├── data
 │   ├── quora
 │   │   ├── quora_duplicate_questions.tsv
-│   ├── wikianswers
-│   │   ├── questions.txt
 │   ├── mscoco
 │   │   ├── captions_train2014.json
 │   │   ├── captions_val2014.json
@@ -54,11 +68,6 @@ catbird
 Donwload Quora data [HERE](https://quoradata.quora.com/First-Quora-Dataset-Release-Question-Pairs). Prepare Quora data by running:
 ```shell
 poetry run python tools/preprocessing/create_data.py quora --root-path ./data/quora --out-dir ./data/quora
-```
-
-Download WikiAnswers [HERE](http://knowitall.cs.washington.edu/paralex/). Prepare WikiAnswers data by running:
-```shell
-poetry run python tools/preprocessing/create_data.py wikianswers --root-path ./data/wikianswers --out-dir ./data/wikianswers
 ```
 
 Download MSCOCO [HERE](https://cocodataset.org/#download), under the link '2014 Train/Val annotations'. Prepare MSCOCO data by running:

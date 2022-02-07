@@ -6,10 +6,11 @@ import torch
 from catbird.core import Config  # type: ignore
 from torch.utils.data import Dataset
 from transformers import AutoTokenizer
+from .utils import TeacherForcing
 
 
-class QuoraDataset(Dataset):
-    """Torch Dataset class to process the Quora dataset."""
+class SentencePairDataset(Dataset):
+    """Torch Dataset class to process sentence pair datasets."""
 
     def __init__(
         self, cfg: Config, split: str, data: List, tokenizer: AutoTokenizer
@@ -71,6 +72,17 @@ class QuoraDataset(Dataset):
         batch = {
             k: torch.tensor(v).squeeze(0) for (k, v) in input_txt_tokenized.items()
         }
+        
+        prev_output_tokens = batch["tgt"].clone()
+        if self.tokenizer.eos_token_id is None:
+            prev_output_tokens[0] = batch["input_ids"][-1]
+        else:
+            prev_output_tokens[0] = self.tokenizer.eos_token_id
+        prev_output_tokens[1:] = batch["tgt"][:-1]
+        
+        batch["prev_output_tokens"] = prev_output_tokens
+        batch["src_lengths"] = torch.sum(batch["input_ids"].ne(self.tokenizer.pad_token_id)) 
+        
         return batch
 
     def __len__(self) -> int:
