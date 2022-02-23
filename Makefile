@@ -1,7 +1,7 @@
 PACKAGE=catbird
 UNIT_TESTS=tests
 
-all: static-tests coverage
+all: static-checks coverage
 
 .PHONY: all
 
@@ -29,11 +29,5 @@ unit-tests:
 
 coverage:
 	$(info Running coverage analysis with JUnit xml export...)
-	# poetry run pytest -v --cov-report term-missing --cov $(PACKAGE)
 	poetry run pytest --cov=./ --cov-report=xml
-
-coverage-html:
-	$(info Running coverage analysis with html export...)
-	poetry run pytest -v --cov-report html --cov $(PACKAGE)
-	open htmlcov/index.html
 

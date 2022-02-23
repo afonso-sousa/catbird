@@ -10,7 +10,8 @@ from ignite.utils import setup_logger
 from catbird.core import build_from_cfg
 from .utils import freeze_params
 
-from .registry import GENERATORS, ENCODERS, DECODERS
+from .registry import GENERATORS, ENCODERS, GRAPH_ENCODERS, DECODERS
+
 
 def build(cfg, registry, default_args=None):
     if isinstance(cfg, list):
@@ -36,7 +37,7 @@ def build_generator(cfg: Config) -> nn.Module:
     logger.info(f"Loading {cfg.model.name} dataset")
 
     # HARDCODED OVERWRITE
-    if isinstance(cfg.model, dict):
+    if isinstance(cfg.model, dict) and "type" in cfg.model:
         cfg.model.encoder.vocabulary_size = cfg.embedding_length
         cfg.model.encoder.pad_token_id = cfg.pad_token_id
         cfg.model.decoder.vocabulary_size = cfg.embedding_length
@@ -45,14 +46,14 @@ def build_generator(cfg: Config) -> nn.Module:
     else:
         model_name = cfg.model.name.lower().split("-")[0]
         module = import_module(f"catbird.models.{model_name}")
-        
+
         # module_name = filename.stem
         # if "." in module_name:
         #     raise ValueError("Dots are not allowed in config file path.")
         # config_dir = Path(filename).parent
         # sys.path.insert(0, config_dir.as_posix())
         # mod = import_module(module_name)
-        # sys.path.pop(0) 
+        # sys.path.pop(0)
 
         model = getattr(module, "initialize")(cfg)
 
@@ -73,6 +74,9 @@ def build_generator2(cfg):
 
 def build_encoder(cfg):
     return build(cfg, ENCODERS)
+
+def build_graph_encoder(cfg):
+    return build(cfg, GRAPH_ENCODERS)
 
 
 def build_decoder(cfg):

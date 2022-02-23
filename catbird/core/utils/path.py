@@ -1,8 +1,8 @@
 """File for general path handling."""
 
-import os
 from pathlib import Path
 from typing import Any, TextIO, Union
+import os
 
 
 def fopen(filepath: Union[str, Path], *args: Any, **kwargs: Any) -> TextIO:
@@ -42,4 +42,4 @@ def mkdir_or_exist(dir_name: str, mode: int = 0o777) -> None:
     """
     if dir_name == "":
         return
-    os.makedirs(dir_name, mode=mode, exist_ok=True)
+    Path(dir_name).mkdir(mode=mode, parents=True, exist_ok=True)

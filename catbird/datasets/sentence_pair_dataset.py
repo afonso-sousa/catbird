@@ -6,7 +6,7 @@ import torch
 from catbird.core import Config  # type: ignore
 from torch.utils.data import Dataset
 from transformers import AutoTokenizer
-from .utils import TeacherForcing
+from functools import partial
 
 
 class SentencePairDataset(Dataset):
@@ -43,6 +43,7 @@ class SentencePairDataset(Dataset):
         Returns:
             dict[str, torch.Tensor]: dictionary with src and target sentences as embedding tensors
         """
+
         src_text = [self.task_prefix + str(self.data[idx]["src"])]
 
         tgt_text = [str(self.data[idx]["tgt"])]
@@ -72,17 +73,19 @@ class SentencePairDataset(Dataset):
         batch = {
             k: torch.tensor(v).squeeze(0) for (k, v) in input_txt_tokenized.items()
         }
-        
+
         prev_output_tokens = batch["tgt"].clone()
         if self.tokenizer.eos_token_id is None:
             prev_output_tokens[0] = batch["input_ids"][-1]
         else:
             prev_output_tokens[0] = self.tokenizer.eos_token_id
         prev_output_tokens[1:] = batch["tgt"][:-1]
-        
+
         batch["prev_output_tokens"] = prev_output_tokens
-        batch["src_lengths"] = torch.sum(batch["input_ids"].ne(self.tokenizer.pad_token_id)) 
-        
+        batch["src_lengths"] = torch.sum(
+            batch["input_ids"].ne(self.tokenizer.pad_token_id)
+        )
+
         return batch
 
     def __len__(self) -> int:

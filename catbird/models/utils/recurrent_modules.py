@@ -1,37 +1,50 @@
 from torch import nn
 import torch
 
-def Recurrent(mode, input_size, hidden_size,
-              num_layers=1, bias=True, batch_first=False,
-              dropout=0, bidirectional=False, residual=False):
-    params = dict(input_size=input_size, hidden_size=hidden_size,
-                  num_layers=num_layers, bias=bias, batch_first=batch_first,
-                  dropout=dropout, bidirectional=bidirectional)
 
-    if mode == 'LSTM':
+def Recurrent(
+    mode,
+    input_size,
+    hidden_size,
+    num_layers=1,
+    bias=True,
+    batch_first=False,
+    dropout=0,
+    bidirectional=False,
+    residual=False,
+):
+    params = dict(
+        input_size=input_size,
+        hidden_size=hidden_size,
+        num_layers=num_layers,
+        bias=bias,
+        batch_first=batch_first,
+        dropout=dropout,
+        bidirectional=bidirectional,
+    )
+
+    if mode == "LSTM":
         rnn = nn.LSTM
-    elif mode == 'GRU':
+    elif mode == "GRU":
         rnn = nn.GRU
-    elif mode == 'RNN':
+    elif mode == "RNN":
         rnn = nn.RNN
-        params['nonlinearity'] = 'tanh'
-    elif mode == 'iRNN':
+        params["nonlinearity"] = "tanh"
+    elif mode == "iRNN":
         rnn = nn.RNN
-        params['nonlinearity'] = 'relu'
+        params["nonlinearity"] = "relu"
     else:
-        raise Exception('Unknown mode: {}'.format(mode))
+        raise Exception("Unknown mode: {}".format(mode))
     if residual:
-        rnn = wrap_stacked_recurrent(rnn,
-                                        num_layers=num_layers,
-                                        residual=True)
-        params['num_layers'] = 1
-    if params.get('num_layers', 0) == 1:
-        params.pop('dropout', None)
+        rnn = wrap_stacked_recurrent(rnn, num_layers=num_layers, residual=True)
+        params["num_layers"] = 1
+    if params.get("num_layers", 0) == 1:
+        params.pop("dropout", None)
     module = rnn(**params)
 
-    if mode == 'iRNN':
+    if mode == "iRNN":
         for n, p in module.named_parameters():
-            if 'weight_hh' in n:
+            if "weight_hh" in n:
                 p.detach().copy_(torch.eye(*p.shape))
     return module
 
@@ -43,11 +56,11 @@ def wrap_stacked_recurrent(recurrent_func, num_layers=1, residual=False):
             rnn = recurrent_func(*kargs, **kwargs)
             module.add_module(str(i), rnn)
         return module
+
     return f
 
 
 class StackedRecurrent(nn.Sequential):
-
     def __init__(self, dropout=0, residual=False):
         super(StackedRecurrent, self).__init__()
         self.residual = residual
@@ -64,7 +77,6 @@ class StackedRecurrent(nn.Sequential):
             else:
                 inputs = output
 
-            inputs = nn.functional.dropout(
-                inputs, self.dropout, self.training)
+            inputs = nn.functional.dropout(inputs, self.dropout, self.training)
 
         return output, tuple(next_hidden)

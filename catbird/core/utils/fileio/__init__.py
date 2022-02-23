@@ -9,5 +9,5 @@ __all__ = [
     "BaseFileHandler",
     "JsonHandler",
     "YamlHandler",
-    "PickleHandler"
+    "PickleHandler",
 ]

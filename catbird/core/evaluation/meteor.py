@@ -87,21 +87,3 @@ class Meteor(Metric):
             )
 
         return self._sum_of_meteor / self._num_sentences
-
-
-if __name__ == "__main__":
-    y_pred = "the the the the the the the"
-    y = ["the cat is on the mat", "there is a cat on the mat"]
-
-    y_pred1 = [y_pred.split()]
-    y1 = [[_y.split() for _y in y]]
-
-    meteor = load_metric("meteor")
-    meteor_results = meteor.compute(predictions=y_pred1, references=y1)
-
-    my_meteor = Meteor()
-    my_meteor.update((y_pred1, y1))
-
-    assert round(my_meteor.compute().item(), 4) == round(meteor_results["meteor"], 4)
-
-    print(round(my_meteor.compute().item(), 4))

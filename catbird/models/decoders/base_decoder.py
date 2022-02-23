@@ -1,4 +1,5 @@
 from abc import abstractmethod
+
 from torch import nn
 
 
@@ -6,7 +7,7 @@ class BaseDecoder(nn.Module):
     def __init__(self):
         super(BaseDecoder, self).__init__()
 
-    def forward(self, prev_output_tokens, encoder_out=None, **kwargs):
+    def forward(self, prev_output_tokens, **kwargs):
         """
         Args:
             prev_output_tokens (LongTensor): shifted output tokens of shape
@@ -18,14 +19,12 @@ class BaseDecoder(nn.Module):
                 - the decoder's output of shape `(batch, tgt_len, vocab)`
                 - a dictionary with any model-specific outputs
         """
-        x, extra = self.extract_features(
-            prev_output_tokens, encoder_out=encoder_out, **kwargs
-        )
+        x, extra = self.extract_features(prev_output_tokens, **kwargs)
         x = self.output_layer(x)
         return x, extra
 
     @abstractmethod
-    def extract_features(self, prev_output_tokens, encoder_out=None, **kwargs):
+    def extract_features(self, prev_output_tokens, **kwargs):
         """
         Returns:
             tuple:

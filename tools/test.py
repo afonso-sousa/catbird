@@ -38,9 +38,9 @@ def parse_args():
     )
     parser.add_argument("--work-dir", help="dir to save logs")
     parser.add_argument("--seed", type=int, default=0, help="random seed")
-    group_gpus = parser.add_mutually_exclusive_group()
-    group_gpus.add_argument("--gpus", type=int, help="number of gpus to use")
-    group_gpus.add_argument("--gpu-ids", type=int, nargs="+", help="ids of gpus to use")
+    # group_gpus = parser.add_mutually_exclusive_group()
+    # group_gpus.add_argument("--gpus", type=int, help="number of gpus to use")
+    # group_gpus.add_argument("--gpu-ids", type=int, nargs="+", help="ids of gpus to use")
 
     args = parser.parse_args()
 
@@ -67,7 +67,10 @@ def main():
     val_dataset = build_dataset(cfg, "val", tokenizer)
     val_dataloader = get_dataloader(cfg, "val", val_dataset)
 
-    model, _ = build_generator(cfg)
+    model = build_generator(cfg)
+    
+    num_parameters = sum([l.nelement() for l in model.parameters()])
+    logger.info(f"Model's # of parameters: {num_parameters}")
 
     checkpoint = torch.load(args.checkpoint)
     Checkpoint.load_objects(to_load={"model": model}, checkpoint=checkpoint)

@@ -32,7 +32,8 @@ class GRUEncoder(nn.Module):
         self.embedding_layer = nn.Embedding(self.vocab_size, embedding_out_dims)
         self.gru_encoder = nn.GRU(embedding_out_dims, encoder_hidden_dims)
         self.linear = nn.Sequential(
-            nn.Dropout(dropout_proba), nn.Linear(encoder_hidden_dims, encoder_out_dims),
+            nn.Dropout(dropout_proba),
+            nn.Linear(encoder_hidden_dims, encoder_out_dims),
         )
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
@@ -45,10 +46,10 @@ class GRUEncoder(nn.Module):
             torch.Tensor: Output of last linear layer.
         """
         embedding_out = self.embedding_layer(input)
-        
+
         # B x T x C -> T x B x C
         embedding_out = embedding_out.transpose(0, 1)
-        
+
         encoder_out = self.gru_encoder(embedding_out)[1]
         out = self.linear(encoder_out)
 
@@ -116,7 +117,7 @@ class EDD(nn.Module):
 
         """
         enc_input = self.encoder(input)
-        
+
         # B x T x C -> T x B x C
         target = target.transpose(0, 1)
 
@@ -137,7 +138,7 @@ class EDD(nn.Module):
         out = out.transpose(0, 1)
         enc_out = enc_out.squeeze(0)
         enc_target = enc_target.squeeze(0)
-        
+
         return out, enc_out, enc_target
 
     def generate(self, input, target=None):
@@ -164,6 +165,7 @@ class EDD(nn.Module):
     @property
     def get_encoder(self):
         return self.encoder
+
 
 def train_step(
     cfg: Config,

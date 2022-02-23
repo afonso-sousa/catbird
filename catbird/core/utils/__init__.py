@@ -18,5 +18,5 @@ __all__ = [
     "JsonHandler",
     "YamlHandler",
     "Registry",
-    "build_from_cfg"
+    "build_from_cfg",
 ]

@@ -75,10 +75,11 @@ class RecurrentEncoder(nn.Module):
 
         x, hidden_t = self.rnn(x, hidden)
 
-        state = State(outputs=x,  # batch x seq_len x hidden
-                hidden=hidden_t,  # num_layers x batch x num_directions*hidden
+        state = State(
+            outputs=x,  # batch x seq_len x hidden
+            hidden=hidden_t,  # num_layers x batch x num_directions*hidden
         )
-        
+
         return state
         # return tuple(
         #     (

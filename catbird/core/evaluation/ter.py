@@ -80,23 +80,3 @@ class TER(Metric):
             )
 
         return self._sum_of_ter / self._num_sentences
-
-
-if __name__ == "__main__":
-    y_pred = "the the the the the the the"
-    y = ["the cat is on the mat", "there is a cat on the mat"]
-
-    y_pred1 = [y_pred.split()]
-    y1 = [[_y.split() for _y in y]]
-
-    ter = load_metric("ter")
-    results = ter.compute(predictions=y_pred1, references=y1)
-
-    my_ter = TER()
-    my_ter.update((y_pred1, y1))
-
-    assert round(my_ter.compute().item(), 4) == round(
-        ter.compute(predictions=y_pred1, references=y1)["score"], 4
-    )
-
-    print(round(my_ter.compute().item(), 4))

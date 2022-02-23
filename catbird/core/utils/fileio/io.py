@@ -11,8 +11,8 @@ file_handlers = {
     "json": JsonHandler(),
     "yaml": YamlHandler(),
     "yml": YamlHandler(),
-    'pickle': PickleHandler(),
-    'pkl': PickleHandler()
+    "pickle": PickleHandler(),
+    "pkl": PickleHandler(),
 }
 
 

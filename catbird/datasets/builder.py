@@ -7,9 +7,12 @@ import ignite.distributed as idist
 from catbird.core import Config, load  # type: ignore
 from ignite.utils import setup_logger
 from torch.utils.data import DataLoader, Dataset
+from torch.utils.data.dataloader import default_collate
+from torch_geometric.data import Batch, Data
 from transformers import AutoTokenizer
 
 from .sentence_pair_dataset import SentencePairDataset
+from .graph_sent_pair_dataset import GraphSentPairDataset
 
 
 def build_dataset(cfg: Config, split: str, tokenizer: AutoTokenizer) -> Tuple[Dataset]:
@@ -32,7 +35,11 @@ def build_dataset(cfg: Config, split: str, tokenizer: AutoTokenizer) -> Tuple[Da
 
     if cfg.dataset_name.lower() in ["quora", "mscoco"]:
         data = load(Path(cfg.data_root) / f"{cfg.dataset_name.lower()}_{split}.pkl")
-        dataset = SentencePairDataset(cfg, split, data, tokenizer)
+        if cfg.data.get("use_ie_graph", False):
+            graph = load(Path(cfg.data_root) / f"{cfg.dataset_name.lower()}_triples_{split}.pkl")
+            dataset = GraphSentPairDataset(cfg, split, data, tokenizer, graph)
+        else:
+            dataset = SentencePairDataset(cfg, split, data, tokenizer)
         return dataset
     else:
         raise NameError(
@@ -51,12 +58,23 @@ def get_dataloader(cfg: Config, split: str, dataset: Dataset) -> DataLoader:
     Returns:
         DataLoader: tuple with train or train and validation dataloaders
     """
-    # Setup data loader also adapted to distributed config: nccl, gloo, xla-tpu
-    loader = idist.auto_dataloader(
-        dataset,
-        batch_size=cfg.train.batch_size * (1 if split == "train" else 2),
-        num_workers=cfg.num_workers,
-        shuffle=(True if split == "train" else False),
-        drop_last=(True if split == "train" else False),
-    )
+    if cfg.data.get("use_ie_graph", False):
+        from torch_geometric.loader import DataLoader as PyGDataLoader
+        
+        loader = PyGDataLoader(
+            dataset,
+            batch_size=cfg.train.batch_size * (1 if split == "train" else 2),
+            num_workers=cfg.num_workers,
+            shuffle=(True if split == "train" else False),
+            drop_last=(True if split == "train" else False),
+        )
+    else:
+        # Setup data loader also adapted to distributed config: nccl, gloo, xla-tpu
+        loader = idist.auto_dataloader(
+            dataset,
+            batch_size=cfg.train.batch_size * (1 if split == "train" else 2),
+            num_workers=cfg.num_workers,
+            shuffle=(True if split == "train" else False),
+            drop_last=(True if split == "train" else False),
+        )
     return loader

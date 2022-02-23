@@ -67,3 +67,5 @@ target/
 data/
 data
 work_dirs/
+*.png
+*.jpg

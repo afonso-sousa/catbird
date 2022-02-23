@@ -4,6 +4,7 @@ import torch
 from catbird.core import Config
 from catbird.datasets import build_dataset, get_dataloader
 from catbird.tokenizers import build_tokenizer
+import copy
 
 
 class TestDatasets(unittest.TestCase):
@@ -123,3 +124,44 @@ class TestDatasets(unittest.TestCase):
                     self.cfg.data.max_length,
                 )
                 assert src_ids.shape == tgt.shape
+
+    def test_graphs_in_batches(self):
+        self.cfg.dataset_name = "MSCOCO"
+        self.cfg.data_root = "data/mscoco/"
+        self.cfg.data.use_ie_graph = True
+        val_dataset = build_dataset(self.cfg, "val", self.tokenizer)
+        
+        val_loader = get_dataloader(self.cfg, "val", val_dataset)
+        sample_batch = next(iter(val_loader))
+
+        print(sample_batch["ie_graph"])
+        assert False
+    
+    def test_graph_collate(self):
+        from torch.utils.data.dataloader import default_collate
+        from torch_geometric.data import Batch, Data
+        from torch_geometric.loader import DataLoader as PyGDataLoader
+
+        batch = default_collate([{'A': 0, 'B': 1}, {'A': 100, 'B': 100}])
+        # {'A': tensor([  0, 100]), 'B': tensor([  1, 100])}
+        print(batch)
+        
+        edge_index = torch.tensor([[0, 1, 1, 2],
+                           [1, 0, 2, 1]], dtype=torch.long)
+        x = torch.tensor([[-1], [0], [1]], dtype=torch.float)
+        graph = Data(x=x, edge_index=edge_index)
+        s1 = {'input_ids': torch.randint(1, 10, (5,)),
+                  'attention_mask': torch.zeros(5),
+                  'tgt': torch.randint(1, 10, (5,)),
+                  'prev_output_tokens': torch.randint(1, 10, (5,)),
+                  'src_lengths': torch.tensor(5),
+                  'ie_graph': graph}
+        
+        s2 = copy.deepcopy(s1)
+        sample = [s1, s2]
+
+        # batch2 = [default_collate(s) for s in sample if not isinstance(s, Data)]
+        # print(batch2)
+        loader = PyGDataLoader(sample, batch_size=32, shuffle=True)
+        print(next(iter(loader)))
+        assert False

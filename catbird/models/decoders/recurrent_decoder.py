@@ -51,7 +51,7 @@ class RecurrentDecoder(BaseDecoder):
     # (shifted right by one position) and produce logits over the vocabulary.
     # The *prev_output_tokens* tensor begins with the end-of-sentence symbol,
     # ``dictionary.eos()``, followed by the target sequence.
-    def forward(self, prev_output_tokens, states):
+    def forward(self, prev_output_tokens, state):
         """
         cfg:
             prev_output_tokens (LongTensor): previous decoder outputs of shape
@@ -66,11 +66,11 @@ class RecurrentDecoder(BaseDecoder):
                 - the last decoder layer's attention weights of shape
                   `(batch, tgt_len, src_len)`
         """
-        x, new_states = self.extract_features(prev_output_tokens, states)
-        return self.fc_out(x), new_states
+        x, new_state = self.extract_features(prev_output_tokens, state)
+        return self.fc_out(x), new_state
 
-    def extract_features(self, prev_output_tokens, states):
-        encoder_hiddens = states.hidden
+    def extract_features(self, prev_output_tokens, state):
+        encoder_hiddens = state.hidden
         # encoder_hiddens = encoder_hiddens[:self.num_layers]
 
         bsz, seqlen = prev_output_tokens.size()
@@ -83,7 +83,10 @@ class RecurrentDecoder(BaseDecoder):
         # B x T x C -> T x B x C
         x = x.transpose(0, 1)
 
-        prev_hiddens_t = [(encoder_hiddens[0][i], encoder_hiddens[1][i])  for i in range(self.num_layers)]
+        prev_hiddens_t = [
+            (encoder_hiddens[0][i], encoder_hiddens[1][i])
+            for i in range(self.num_layers)
+        ]
         # prev_cells = [torch.zeros_like(prev_hiddens[0]) for i in range(self.num_layers)]
         input_feed = x.new_zeros(bsz, self.hidden_dim)
 

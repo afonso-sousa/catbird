@@ -91,7 +91,7 @@ def mscoco_data_prep(data_path, save_path=None, split="train"):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Data converter arg parser")
+    parser = argparse.ArgumentParser(description="Data Converter")
     parser.add_argument("dataset", help="name of the dataset")
     parser.add_argument(
         "--root-path",
@@ -100,7 +100,7 @@ if __name__ == "__main__":
         help="specify the root path of dataset",
     )
     parser.add_argument(
-        "--out-dir", type=str, default="./data/kitti", help="name of info pkl"
+        "--out-dir", type=str, default="./data/quora", help="specify path to store output"
     )
     parser.add_argument(
         "--workers", type=int, default=4, help="number of threads to be used"

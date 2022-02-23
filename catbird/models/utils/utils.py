@@ -43,4 +43,3 @@ def convert_padding_direction(
     else:
         index = torch.remainder(range + num_pads, max_len)
     return src_tokens.gather(1, index)
-

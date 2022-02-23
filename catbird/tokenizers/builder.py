@@ -1,7 +1,4 @@
 """Factory to build tokenizers."""
-
-from typing import Any
-
 from catbird.core import Config  # type: ignore
 from transformers import AutoTokenizer
 

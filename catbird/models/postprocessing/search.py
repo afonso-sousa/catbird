@@ -8,6 +8,7 @@ import heapq
 
 EOS = 2
 
+
 class Sequence(object):
     """Represents a complete or partial sequence."""
 
@@ -88,13 +89,15 @@ class TopN(object):
 class SequenceGenerator(object):
     """Class to generate sequences from an image-to-text model."""
 
-    def __init__(self,
-                 decode_step,
-                 eos_id=EOS,
-                 beam_size=3,
-                 max_sequence_length=50,
-                 length_normalization_factor=0.0,
-                 length_normalization_const=5.,):
+    def __init__(
+        self,
+        decode_step,
+        eos_id=EOS,
+        beam_size=3,
+        max_sequence_length=50,
+        length_normalization_factor=0.0,
+        length_normalization_const=5.0,
+    ):
         """Initializes the generator.
         Args:
           deocde_step: function, with inputs: (input, state) and outputs len(vocab) values
@@ -130,10 +133,12 @@ class SequenceGenerator(object):
         complete_sequences = [TopN(self.beam_size) for _ in range(batch_size)]
 
         words, logprobs, new_state = self.decode_step(
-            initial_input, initial_state,
+            initial_input,
+            initial_state,
             k=self.beam_size,
-            feed_all_timesteps=True,)
-        
+            feed_all_timesteps=True,
+        )
+
         for b in range(batch_size):
             # Create first beam_size candidate hypotheses for each entry in
             # batch
@@ -143,7 +148,8 @@ class SequenceGenerator(object):
                     state=new_state[b],
                     logprob=logprobs[b][k],
                     score=logprobs[b][k],
-                    attention=None)
+                    attention=None,
+                )
                 partial_sequences[b].push(seq)
 
         # Run beam search.
@@ -152,10 +158,11 @@ class SequenceGenerator(object):
             for p in partial_sequences:
                 p.reset()
 
-            # Keep a flattened list of parial hypotheses, to easily feed
+            # Keep a flattened list of partial hypotheses, to easily feed
             # through a model as whole batch
             flattened_partial = [
-                s for sub_partial in partial_sequences_list for s in sub_partial]
+                s for sub_partial in partial_sequences_list for s in sub_partial
+            ]
 
             input_feed = [c.output for c in flattened_partial]
             state_feed = [c.state for c in flattened_partial]
@@ -164,12 +171,13 @@ class SequenceGenerator(object):
                 # beam_size=1
                 break
 
-            # Feed current hypotheses through the model, and recieve new outputs and states
+            # Feed current hypotheses through the model, and receive new outputs and states
             # logprobs are needed to rank hypotheses
-            words, logprobs, new_states \
-                = self.decode_step(
-                    input_feed, state_feed,
-                    k=self.beam_size + 1,)
+            words, logprobs, new_states = self.decode_step(
+                input_feed,
+                state_feed,
+                k=self.beam_size + 1,
+            )
 
             idx = 0
             for b in range(batch_size):
@@ -192,14 +200,16 @@ class SequenceGenerator(object):
                             if self.length_normalization_factor > 0:
                                 L = self.length_normalization_const
                                 length_penalty = (L + len(output)) / (L + 1)
-                                score /= length_penalty ** self.length_normalization_factor
-                            beam = Sequence(output, state,
-                                            logprob, score, attention)
+                                score /= (
+                                    length_penalty ** self.length_normalization_factor
+                                )
+                            beam = Sequence(output, state, logprob, score, attention)
                             complete_sequences[b].push(beam)
-                            num_hyp -= 1  # we can fit another hypotheses as this one is over
+                            num_hyp -= (
+                                1  # we can fit another hypotheses as this one is over
+                            )
                         else:
-                            beam = Sequence(output, state,
-                                            logprob, score, attention)
+                            beam = Sequence(output, state, logprob, score, attention)
                             partial_sequences[b].push(beam)
                     idx += 1
 
@@ -210,6 +220,5 @@ class SequenceGenerator(object):
         for b in range(batch_size):
             if not complete_sequences[b].size():
                 complete_sequences[b] = partial_sequences[b]
-        seqs = [complete.extract(sort=True)[0]
-                for complete in complete_sequences]
+        seqs = [complete.extract(sort=True)[0] for complete in complete_sequences]
         return seqs

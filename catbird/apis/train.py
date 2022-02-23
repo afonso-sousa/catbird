@@ -48,17 +48,14 @@ def default_train_step(
 
         if batch["tgt"].device != device:
             batch = {
-                k: v.to(device, non_blocking=True, dtype=torch.long)
+                k: v.to(device, non_blocking=True)
                 for (k, v) in batch.items()
             }
 
-        src_ids = batch["input_ids"]
         tgt = batch["tgt"]
-        src_lengths = batch["src_lengths"]
-        prev_output_tokens = batch["prev_output_tokens"]
 
         with autocast(enabled=with_amp):
-            net_output = model(src_ids, src_lengths, prev_output_tokens)
+            net_output, _ = model(**batch)
 
             loss = loss_fct(
                 net_output.reshape(-1, net_output.size(-1)), tgt.reshape(-1)
@@ -76,6 +73,7 @@ def default_train_step(
         return {"batch loss": loss.item()}
 
     return routine
+
 
 
 def default_evaluate_step(
@@ -105,7 +103,7 @@ def default_evaluate_step(
 
         if batch["tgt"].device != device:
             batch = {
-                k: v.to(device, non_blocking=True, dtype=torch.long)
+                k: v.to(device, non_blocking=True)
                 for (k, v) in batch.items()
             }
 
@@ -207,27 +205,3 @@ def create_evaluator(
         metric.attach(evaluator, name)
 
     return evaluator
-
-
-if __name__ == "__main__":
-    import logging
-
-    from catbird.core import Config
-    from catbird.datasets import build_dataset, get_dataloaders
-    from catbird.models import build_generator
-    from catbird.tokenizers import build_tokenizer
-
-    cfg = Config.fromfile("configs/edl_quora.yaml")
-
-    tokenizer = build_tokenizer(cfg)
-    cfg.embedding_length = len(tokenizer)
-
-    datasets = build_dataset(cfg, tokenizer, validate=False)
-    dataloaders = get_dataloaders(cfg, *datasets)
-
-    model, optimizer = build_generator(cfg)
-    trainer = create_trainer(
-        cfg, model, optimizer, dataloaders[0].sampler, logging.getLogger()
-    )
-
-    print(dir(trainer))
