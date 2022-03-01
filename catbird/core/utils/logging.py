@@ -1,6 +1,6 @@
 """File with logging facilities."""
 from logging import Logger
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import ignite
 import ignite.distributed as idist
@@ -8,21 +8,22 @@ import torch
 from .config import Config
 
 
-def log_metrics_eval(
-    logger: Logger, epoch: int, elapsed: float, tag: str, metrics: Dict[str, Any]
+def log_metrics(
+    logger: Logger, elapsed: float, tag: str, metrics: Dict[str, Any], epoch: Optional[int] = None
 ) -> None:
     """Log metric evaluation score.
 
     Args:
         logger (Logger): Logger instance.
-        epoch (int): Epoch number.
         elapsed (float): Time that evaluation took.
         tag (str): An identification tag.
         metrics (Dict[str, Any]): Dictionary with evaluation metrics' outputs.
-    """
+        epoch (Optional[int]): Epoch number.
+    """    
     metrics_output = "\n".join([f"\t{k}: {v}" for k, v in metrics.items()])
+    epoch_string = f"Epoch: {epoch} - " if epoch else ""
     logger.info(
-        f"\nEpoch {epoch} - Evaluation time (seconds): {elapsed:.2f} - {tag} metrics:\n {metrics_output}"
+        f"\n{epoch_string}Evaluation time (seconds): {elapsed:.2f} - {tag} metrics:\n {metrics_output}"
     )
 
 
@@ -33,7 +34,7 @@ def log_basic_info(logger: Logger, config: Config) -> None:
         logger (Logger): Logger instance.
         config (Config): Configuration information.
     """
-    logger.info(f"Train on Quora")
+    logger.info(f"Train on {config.dataset_name}")
     logger.info(f"- PyTorch version: {torch.__version__}")
     logger.info(f"- Ignite version: {ignite.__version__}")
     if torch.cuda.is_available():

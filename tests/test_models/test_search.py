@@ -29,11 +29,11 @@ def test_beam_search():
 
     src = torch.randint(1, 1000, (batch_size, 80)).cuda()
     
-    EOS_TOKEN = 2
-    bos = [[EOS_TOKEN]] * batch_size
+    # EOS_TOKEN = 2
+    # bos = [[EOS_TOKEN]] * batch_size
 
     with torch.no_grad():
-        seqs = model.generate(src, bos,
+        seqs = model.generate(src,
                         beam_size=beam_size,
                         max_sequence_length=max_output_length,
                         length_normalization_factor=length_normalization_factor,)

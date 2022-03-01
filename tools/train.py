@@ -5,7 +5,7 @@ from pathlib import Path
 
 import ignite.distributed as idist
 from catbird.apis import create_evaluator, create_trainer
-from catbird.core import (Config, log_basic_info, log_metrics_eval,
+from catbird.core import (Config, log_basic_info, log_metrics,
                           mkdir_or_exist)
 from catbird.core import build_optimizer
 from catbird.datasets import build_dataset, get_dataloader
@@ -16,6 +16,7 @@ from ignite.engine import Events
 from ignite.handlers import Checkpoint, DiskSaver, global_step_from_engine
 from ignite.metrics import Bleu
 from ignite.utils import manual_seed, setup_logger
+from functools import partial
 
 warnings.filterwarnings("ignore")
 
@@ -63,35 +64,41 @@ def training(local_rank, cfg, args):
 
     trainer = create_trainer(cfg, model, optimizer, train_dataloader.sampler, logger)
 
-    metrics = {
-        "bleu": Bleu(ngram=4, smooth="smooth1", average="micro"),
-        "bleu_smooth_2": Bleu(ngram=4, smooth="smooth2", average="micro"),
-    }
-
-    best_model_handler = Checkpoint(
+    best_model_handler = partial(Checkpoint,
         {"model": model},
         DiskSaver(dirname=cfg.work_dir.as_posix(), require_empty=False),
         filename_prefix="best",
         n_saved=2,
         global_step_transform=global_step_from_engine(trainer),
-        score_name="val_bleu",
-        score_function=Checkpoint.get_default_score_fn("bleu"),
+        # score_name="val_bleu",
+        # score_function=Checkpoint.get_default_score_fn("bleu"),
     )
 
     if not args.no_validate:
         val_dataset = build_dataset(cfg, "val", tokenizer)
         val_dataloader = get_dataloader(cfg, "val", val_dataset)
 
-        evaluator = create_evaluator(cfg, model, tokenizer, metrics, logger)
-        evaluator.add_event_handler(Events.COMPLETED, best_model_handler)
+        evaluator = create_evaluator(cfg, model, tokenizer, logger)
+        # best_model_handler = best_model_handler(
+        #     score_name="val_bleu",
+        #     score_function=Checkpoint.get_default_score_fn("bleu"),
+        # )
+        evaluator.add_event_handler(Events.COMPLETED, best_model_handler())
 
         @trainer.on(Events.EPOCH_COMPLETED(every=1) | Events.COMPLETED | Events.STARTED)
         def run_validation():
             epoch = trainer.state.epoch
             state = evaluator.run(val_dataloader)
-            log_metrics_eval(
-                logger, epoch, state.times["COMPLETED"], "Validation", state.metrics
+            log_metrics(
+                logger, state.times["COMPLETED"], "Validation", state.output, epoch
             )
+    else:
+        # best_model_handler = best_model_handler(
+        #     score_name="train_loss",
+        #     score_function=Checkpoint.get_default_score_fn("batch loss"),
+        # )
+        trainer.add_event_handler(Events.COMPLETED, best_model_handler())
+
 
     if rank == 0:
         evaluators = {"val": evaluator} if (not args.no_validate) else None

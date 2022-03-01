@@ -1,6 +1,6 @@
 # general config settings
 output_path = "./work_dirs"
-print_output_every = 50
+print_output_every = 100
 num_workers = 4
 
 # dataset settings
@@ -9,7 +9,7 @@ data_root = "data/mscoco/"
 data = dict(
     max_length=80,
     train=dict(dataset_length=-1),
-    val=dict(train_test_split=0.3, dataset_length=2000,),
+    val=dict(train_test_split=0.3, dataset_length=-1,),
     use_ie_graph=True,
 )
 
@@ -29,9 +29,14 @@ model = dict(
     type="GCNLSTM",
     # graph_layer=dict(
     #     coref=True),
-    graph_encoder=dict(type="GCNEncoder"),
-    encoder=dict(type="RecurrentEncoder", num_layers=2,),
-    decoder=dict(type="RecurrentDecoder", encoder_hidden_dim=128,),
+    graph_encoder=dict(
+        type="GCNEncoder",
+        num_features=16,
+        hidden_size=128),
+    encoder=dict(type="RecurrentEncoder",
+                 num_layers=2,),
+    decoder=dict(type="RecurrentDecoder",
+                 encoder_hidden_dim=128,),
 )
 
 # optimizer settings

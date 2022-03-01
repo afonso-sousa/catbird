@@ -1,10 +1,11 @@
 """File to test a paraphrase generator."""
 import argparse
 from pathlib import Path
+from syslog import LOG_SYSLOG
 
 import torch
-from catbird.apis import create_evaluator
-from catbird.core import TER, Config, Meteor, mkdir_or_exist
+from catbird.apis import create_tester
+from catbird.core import TER, Config, Meteor, mkdir_or_exist, log_metrics
 from catbird.datasets import build_dataset, get_dataloader
 from catbird.models import build_generator
 from catbird.tokenizers import build_tokenizer
@@ -78,22 +79,25 @@ def main():
     selected_metrics = {
         key: value for key, value in available_metrics.items() if key in args.metrics
     }
-    evaluator = create_evaluator(cfg, model, tokenizer, selected_metrics, logger)
+    logger.info(f"The selected metrics are: {', '.join(selected_metrics.keys())}")
+    
+    tester = create_tester(cfg, model, tokenizer, selected_metrics, logger)
+    
+    # Compute intermediate metrics
+    @tester.on(Events.ITERATION_COMPLETED(every=5))
+    def compute_and_measure():
+        [value.completed(tester, key) for key, value in selected_metrics.items()]
 
-    @evaluator.on(Events.COMPLETED)
+    @tester.on(Events.ITERATION_COMPLETED(every=5))
     def log_info():
-        metrics_output = "\n".join(
-            [f"\t{k}: {v}" for k, v in evaluator.state.metrics.items()]
+        log_metrics(
+                logger, tester.state.times["COMPLETED"], "Testing", tester.state.metrics
         )
 
-        logger.info(
-            f"\nEvaluation time (seconds): {evaluator.state.times['COMPLETED']:.2f}\nValidation metrics:\n {metrics_output}"
-        )
-
-    common.ProgressBar(persist=False).attach(evaluator)
+    common.ProgressBar(persist=False).attach(tester)
 
     try:
-        state = evaluator.run(val_dataloader,)
+        state = tester.run(val_dataloader,)
     except Exception as e:
         logger.exception("")
         raise e

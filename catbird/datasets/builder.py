@@ -7,8 +7,6 @@ import ignite.distributed as idist
 from catbird.core import Config, load  # type: ignore
 from ignite.utils import setup_logger
 from torch.utils.data import DataLoader, Dataset
-from torch.utils.data.dataloader import default_collate
-from torch_geometric.data import Batch, Data
 from transformers import AutoTokenizer
 
 from .sentence_pair_dataset import SentencePairDataset

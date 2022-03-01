@@ -92,3 +92,11 @@ $ poetry run python tools/train.py configs/t5_quora.yaml
 * [Afonso Sousa][1] (afonsousa2806@gmail.com)
 
 [1]: https://github.com/AfonsoSalgadoSousa
+
+# Acknowledgement
+This project borrowed ideas from the following open-source repositories:
+* [Det3D](https://github.com/poodarchu/Det3D)
+* [fairseq](https://github.com/pytorch/fairseq)
+* [mmcv](https://github.com/open-mmlab/mmcv)
+* [mmdetection](https://github.com/open-mmlab/mmdetection)
+* [Seq2Seq in PyTorch](https://github.com/eladhoffer/seq2seq.pytorch)

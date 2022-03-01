@@ -7,7 +7,6 @@ from typing import Optional, Union
 import ignite.distributed as idist
 import torch
 from catbird.core import Config  # type: ignore
-from catbird.datasets import TeacherForcing
 from ignite.contrib.engines import common
 from ignite.engine import Engine
 from torch import nn, optim
@@ -15,6 +14,7 @@ from torch.cuda.amp import GradScaler, autocast
 from torch.nn import CrossEntropyLoss
 from torch.utils.data.distributed import DistributedSampler
 from transformers import AutoTokenizer
+import torch.nn.functional as F
 
 
 def default_train_step(
@@ -79,9 +79,7 @@ def default_train_step(
 def default_evaluate_step(
     cfg: Config,
     model: nn.Module,
-    tokenizer: AutoTokenizer,
     device: Union[str, torch.device],
-    logger: Logger,
 ):
     """Decorate evaluate step to add more parameters.
 
@@ -93,12 +91,14 @@ def default_evaluate_step(
         logger (Logger): a Logger instance.
     """
 
-    def ids_to_clean_text(generated_ids):
-        gen_text = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)
-        return list(map(str.strip, gen_text))
-
     @torch.no_grad()
     def routine(engine, batch):
+        if cfg.data.get("tokenizer", None):
+            ignore_index = -100
+        else:
+            ignore_index = cfg.pad_token_id
+        loss_fct = CrossEntropyLoss(ignore_index=ignore_index)
+        
         model.eval()
 
         if batch["tgt"].device != device:
@@ -107,20 +107,22 @@ def default_evaluate_step(
                 for (k, v) in batch.items()
             }
 
-        src_ids = batch["input_ids"]
         tgt = batch["tgt"]
-        out = model.generate(src_ids)
-        y_pred = torch.argmax(out, dim=-1)
+        
+        net_output, _ = model(**batch)
 
-        preds = ids_to_clean_text(y_pred)
-        tgt = ids_to_clean_text(tgt)
-        preds = [_preds.split() for _preds in preds]
-        tgt = [[_tgt.split()] for _tgt in tgt]
+        output = net_output.reshape(-1, net_output.size(-1))
+        target = tgt.reshape(-1)
+        loss = loss_fct(output, target)
+        nll = F.nll_loss(output, target, ignore_index=ignore_index)
+        _, argmax = output.max(-1)
+        invalid_targets = target.eq(ignore_index)
+        accuracy = argmax.eq(target).masked_fill_(invalid_targets, 0)\
+            .long().sum() / target.size(0)
 
-        if engine.state.iteration % cfg.print_output_every == 0:
-            logger.info(f'\n Preds : {" ".join(preds[0])} \n')
-            logger.info(f'\n Target : {" ".join(tgt[0][0])} \n')
-        return preds, tgt
+        return {"loss": loss.item(),
+                "nll": nll.item(),
+                "accuracy": accuracy.view(1, 1).item()}
 
     return routine
 
@@ -176,7 +178,6 @@ def create_evaluator(
     cfg: Config,
     model: nn.Module,
     tokenizer: AutoTokenizer,
-    metrics: dict,
     logger: Logger,
 ) -> Engine:
     """Create an evaluation step for the given model.
@@ -193,15 +194,15 @@ def create_evaluator(
     """
     device = idist.device()
 
-    model_name = cfg.model.name.lower().split("-")[0]
-    module = import_module(f"catbird.models.{model_name}")
-    evaluate_step = getattr(module, "evaluate_step")(
-        cfg, model, tokenizer, device, logger
-    )
+    if isinstance(cfg.model, dict) and "type" in cfg.model:
+        evaluate_step = default_evaluate_step(cfg, model, device)
+    else:
+        model_name = cfg.model.name.lower().split("-")[0]
+        module = import_module(f"catbird.models.{model_name}")
+        evaluate_step = getattr(module, "evaluate_step")(
+            cfg, model, tokenizer, device, logger
+        )
 
     evaluator = Engine(evaluate_step)
-
-    for name, metric in metrics.items():
-        metric.attach(evaluator, name)
 
     return evaluator

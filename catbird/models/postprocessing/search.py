@@ -6,8 +6,6 @@ from __future__ import division
 from __future__ import print_function
 import heapq
 
-EOS = 2
-
 
 class Sequence(object):
     """Represents a complete or partial sequence."""
@@ -92,7 +90,7 @@ class SequenceGenerator(object):
     def __init__(
         self,
         decode_step,
-        eos_id=EOS,
+        eos_id=2,
         beam_size=3,
         max_sequence_length=50,
         length_normalization_factor=0.0,

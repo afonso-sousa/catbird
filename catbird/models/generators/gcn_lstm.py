@@ -21,8 +21,7 @@ class GCNLSTM(Seq2Seq):
         state = self.encoder(input_ids)
         graph_embeddings = self.graph_encoder(ie_graph)
         
-        # graph_embeddings = graph_embeddings.expand_as(state.hidden[0])
-        state.hidden = torch.cat((state.hidden[0][:1], graph_embeddings)), state.hidden[1]
+        state.hidden = torch.cat((state.hidden[0][:1], graph_embeddings.unsqueeze(0))), state.hidden[1]
         
         decoder_out = self.decoder(prev_output_tokens, state=state)
         return decoder_out

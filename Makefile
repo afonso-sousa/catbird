@@ -21,6 +21,10 @@ spellcheck:
 	$(info Running spell checker...)
 	poetry run codespell $(PACKAGE)
 
+deadcode:
+	$(info Running dead code checker...)
+	poetry run vulture $(PACKAGE)
+
 static-checks: style spellcheck doccheck
 
 unit-tests:
