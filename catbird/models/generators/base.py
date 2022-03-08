@@ -6,6 +6,7 @@ from ..builder import build_decoder, build_encoder
 from ..postprocessing.search import SequenceGenerator
 from ..state import State
 from typing import Optional
+from torch.nn import CrossEntropyLoss
 
 
 class Seq2Seq(nn.Module):
@@ -14,16 +15,16 @@ class Seq2Seq(nn.Module):
         self.encoder = build_encoder(encoder)
         self.decoder = build_decoder(decoder)
 
-    def forward(self, src_tokens, prev_output_tokens, **kwargs):
+    def forward(self, input_ids, prev_output_tokens, tgt, return_loss=True, **kwargs):
         """
         Run the forward pass for an encoder-decoder model.
         First feed a batch of source tokens through the encoder. Then, feed the
         encoder output and previous decoder outputs (i.e., teacher forcing) to
         the decoder to produce the next outputs:
-            encoder_out = self.encoder(src_tokens, src_lengths)
+            encoder_out = self.encoder(input_ids, src_lengths)
             return self.decoder(prev_output_tokens, encoder_out)
         Args:
-            src_tokens (LongTensor): tokens in the source language of shape
+            input_ids (LongTensor): tokens in the source language of shape
                 `(batch, src_len)`
             src_lengths (LongTensor): source sentence lengths of shape `(batch)`
             prev_output_tokens (LongTensor): previous decoder outputs of shape
@@ -33,15 +34,25 @@ class Seq2Seq(nn.Module):
                 - the decoder's output of shape `(batch, tgt_len, vocab)`
                 - a dictionary with any model-specific outputs
         """
-        state = self.encoder(src_tokens, **kwargs)
-        decoder_out = self.decoder(prev_output_tokens, state=state, **kwargs)
-        return decoder_out
+        state = self.encoder(input_ids, **kwargs)
+        decoder_out, _ = self.decoder(prev_output_tokens, state=state, **kwargs)
+        if return_loss:
+            return self.loss(decoder_out, tgt)
+        else:
+            return decoder_out
 
-    def forward_encoder(self, inputs, hidden=None):
-        return self.encoder(inputs, hidden)
+    def forward_encoder(self, input_ids, **kwargs):
+        return self.encoder(input_ids, **kwargs)
 
     def forward_decoder(self, prev_output_tokens, **kwargs):
         return self.decoder(prev_output_tokens, **kwargs)
+
+    def loss(self, net_output, tgt, ignore_index=-100):
+        loss_fct = CrossEntropyLoss(ignore_index=ignore_index)
+        loss = loss_fct(
+                net_output.reshape(-1, net_output.size(-1)), tgt.reshape(-1)
+            )
+        return loss
 
     def _decode_step(
         self,

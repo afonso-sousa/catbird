@@ -4,8 +4,10 @@ import torch
 from catbird.core import Config
 from catbird.datasets import build_dataset, get_dataloader
 from catbird.models.edd import EDD
-from catbird.models.losses import sent_emb_loss
+from catbird.models.losses import pair_wise_loss
 from catbird.tokenizers import build_tokenizer
+from catbird.core.utils.registry import build_from_cfg
+from catbird.models.registry import GENERATORS
 
 
 class TestEDD(unittest.TestCase):
@@ -44,7 +46,7 @@ class TestEDD(unittest.TestCase):
         print(out.shape)
 
         _ = loss_fct(out.reshape(-1, out.size(-1)), self.tgt.reshape(-1))
-        _ = sent_emb_loss(enc_out, enc_sim_phrase)
+        _ = pair_wise_loss(enc_out, enc_sim_phrase)
 
     def test_edd_val(self):
         def ids_to_clean_text(generated_ids):
@@ -92,3 +94,88 @@ class TestEDD(unittest.TestCase):
             self.cfg.data.max_length,
             self.cfg.embedding_length,
         )
+    
+    def test_edd_structure2(self):
+        batch_size = 32
+        max_length = 80
+    
+        input_ids = torch.randint(1, 100, (batch_size, max_length))
+        src_lengths = torch.randint(5, 15, (batch_size,))
+
+        mask = torch.zeros(input_ids.shape[0], input_ids.shape[1])
+        mask[(torch.arange(input_ids.shape[0]), src_lengths)] = 1
+        mask = mask.cumsum(dim=1)
+
+        input_ids = input_ids * (1.0 - mask)
+
+        prev_output_tokens = torch.cat((input_ids[:, :1], input_ids[:, 1:]), dim=1)
+
+        input_ids = input_ids.to(torch.int64)
+        prev_output_tokens = prev_output_tokens.to(torch.int64)
+        tgt = input_ids.clone()
+             
+        model_cfg=dict(
+            type="EDD",
+            encoder=dict(
+                type='RecurrentEncoder',
+                mode="LSTM",
+                embedding_size=512,
+                hidden_size=512,
+                dropout=0.5,
+                num_layers=1,
+                vocabulary_size=self.cfg.embedding_length,
+                pad_token_id=self.cfg.pad_token_id
+            ),
+            decoder=dict(
+                type="RecurrentDecoder",
+                mode="LSTM",
+                hidden_dim=512,
+                dropout_out=0.5,
+                vocabulary_size=self.cfg.embedding_length,
+                pad_token_id=self.cfg.pad_token_id),
+            discriminator=dict(
+                type='RecurrentDiscriminator',
+                mode="GRU",
+                embedding_size=256,
+                hidden_size=512,
+                dropout=0.5,
+                num_layers=1,
+                out_size=512,
+                vocabulary_size=self.cfg.embedding_length,
+                pad_token_id=self.cfg.pad_token_id
+            ),
+        )
+        model = build_from_cfg(model_cfg, GENERATORS)
+        
+        input = torch.randint(0, self.cfg.embedding_length, (32, 80))
+        state = model.forward_encoder(input)
+        # if model_cfg["encoder"]["num_layers"] > 1:
+        #     assert state.hidden[0].shape == (model_cfg["encoder"]["num_layers"], self.cfg.train.batch_size, model_cfg["encoder"]["embedding_size"])
+        # else:
+        #     assert state.hidden[0].shape == (self.cfg.train.batch_size, model_cfg["encoder"]["embedding_size"])
+
+        decoder_out, _ = model.forward_decoder(prev_output_tokens, state=state)
+        assert decoder_out.shape == (batch_size, max_length, self.cfg.embedding_length)
+        
+        discriminated_out, discriminated_tgt = model.discriminator(decoder_out, tgt)
+
+        # GREEDY SEARCH
+        input_decoder = [[2]] * batch_size
+        state = model.forward_encoder(
+            input_ids,
+        )
+        state_list = state.as_list()
+
+        seqs = torch.zeros((batch_size, max_length))
+        for t in range(max_length):
+            words, _, _ = model._decode_step(
+                input_decoder, state_list,
+                k=1,
+                feed_all_timesteps=True,
+            )
+            seqs[:, t] = words[:, 0]
+        
+        print(words.shape)
+        print(seqs.shape)
+        
+        assert False

@@ -80,3 +80,36 @@ class StackedRecurrent(nn.Sequential):
             inputs = nn.functional.dropout(inputs, self.dropout, self.training)
 
         return output, tuple(next_hidden)
+
+
+def RecurrentCell(
+    mode,
+    input_size,
+    hidden_size,
+    bias=True,
+):
+    params = dict(
+        input_size=input_size,
+        hidden_size=hidden_size,
+        bias=bias,
+    )
+
+    if mode == "LSTM":
+        rnn_cell = nn.LSTMCell
+    elif mode == "GRU":
+        rnn_cell = nn.GRUCell
+    elif mode == "RNN":
+        rnn_cell = nn.RNNCell
+        params["nonlinearity"] = "tanh"
+    elif mode == "iRNN":
+        rnn_cell = nn.RNNCell
+        params["nonlinearity"] = "relu"
+    else:
+        raise Exception("Unknown mode: {}".format(mode))
+    module = rnn_cell(**params)
+
+    if mode == "iRNN":
+        for n, p in module.named_parameters():
+            if "weight_hh" in n:
+                p.detach().copy_(torch.eye(*p.shape))
+    return module

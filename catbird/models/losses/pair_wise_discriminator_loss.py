@@ -1,7 +1,7 @@
 import torch
 
 
-def sent_emb_loss(src_feats: torch.Tensor, tgt_feats: torch.Tensor) -> torch.Tensor:
+def pair_wise_loss(src_feats: torch.Tensor, tgt_feats: torch.Tensor) -> torch.Tensor:
     """Calculate sentence embedding loss.
 
     Proposed in `Learning Semantic Sentence Embeddings using Sequential
@@ -14,6 +14,9 @@ def sent_emb_loss(src_feats: torch.Tensor, tgt_feats: torch.Tensor) -> torch.Ten
     Returns:
         [torch.Tensor]: sentence embedding loss
     """
+    src_feats = src_feats.squeeze(0)
+    tgt_feats = tgt_feats.squeeze(0)
+    
     batch_size = src_feats.size(0)
 
     a = torch.mm(src_feats, tgt_feats.t())

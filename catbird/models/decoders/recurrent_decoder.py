@@ -2,8 +2,9 @@ import torch
 from torch import nn
 
 from ..registry import DECODERS
-from .base_decoder import BaseDecoder
 from ..state import State
+from ..utils import RecurrentCell
+from .base_decoder import BaseDecoder
 
 
 @DECODERS.register_module
@@ -12,17 +13,19 @@ class RecurrentDecoder(BaseDecoder):
         self,
         vocabulary_size,
         pad_token_id=None,
-        encoder_hidden_dim=128,
+        encoder_output_units=128,
         embed_dim=128,
         hidden_dim=128,
         dropout_in=0.1,
         dropout_out=0.1,
         num_layers=1,
+        mode="LSTM",
         residuals=False,
     ):
         super(RecurrentDecoder, self).__init__()
         self.hidden_dim = hidden_dim
         self.num_layers = num_layers
+        self.mode = mode
         self.residuals = residuals
         self.embed_tokens = nn.Embedding(
             num_embeddings=vocabulary_size,
@@ -32,13 +35,16 @@ class RecurrentDecoder(BaseDecoder):
         self.dropout_in_module = nn.Dropout(p=dropout_in)
         self.dropout_out_module = nn.Dropout(p=dropout_out)
 
+        # input feeding is described in arxiv.org/abs/1508.04025
+        input_feed_size = 0 if encoder_output_units == 0 else hidden_dim
         self.layers = nn.ModuleList(
             [
-                nn.LSTMCell(
-                    input_size=encoder_hidden_dim + embed_dim
+                RecurrentCell(
+                    input_size=input_feed_size + embed_dim
                     if layer == 0
                     else hidden_dim,
                     hidden_size=hidden_dim,
+                    mode=mode,
                 )
                 for layer in range(num_layers)
             ]
@@ -51,7 +57,7 @@ class RecurrentDecoder(BaseDecoder):
     # (shifted right by one position) and produce logits over the vocabulary.
     # The *prev_output_tokens* tensor begins with the end-of-sentence symbol,
     # ``dictionary.eos()``, followed by the target sequence.
-    def forward(self, prev_output_tokens, state):
+    def forward(self, prev_output_tokens, state, **kwargs):
         """
         cfg:
             prev_output_tokens (LongTensor): previous decoder outputs of shape
@@ -73,7 +79,7 @@ class RecurrentDecoder(BaseDecoder):
         encoder_hiddens = state.hidden
         # encoder_hiddens = encoder_hiddens[:self.num_layers]
 
-        bsz, seqlen = prev_output_tokens.size()
+        batch_size, seqlen = prev_output_tokens.size()
 
         # Embed the target sequence, which has been shifted right by one
         # position and now starts with the end-of-sentence symbol.
@@ -83,12 +89,22 @@ class RecurrentDecoder(BaseDecoder):
         # B x T x C -> T x B x C
         x = x.transpose(0, 1)
 
-        prev_hiddens_t = [
-            (encoder_hiddens[0][i], encoder_hiddens[1][i])
-            for i in range(self.num_layers)
-        ]
-        # prev_cells = [torch.zeros_like(prev_hiddens[0]) for i in range(self.num_layers)]
-        input_feed = x.new_zeros(bsz, self.hidden_dim)
+        encoder_is_lstm = isinstance(encoder_hiddens, tuple)
+
+        if encoder_is_lstm:
+            hiddens, cells = encoder_hiddens
+            prev_hiddens = [hiddens[i] for i in range(self.num_layers)]
+            prev_cells = [cells[i] for i in range(self.num_layers)]
+        else:
+            if self.mode == "LSTM":
+                prev_hiddens = [encoder_hiddens[i] for i in range(self.num_layers)]
+                prev_cells = [
+                    torch.zeros_like(prev_hiddens[0]) for _ in range(self.num_layers)
+                ]
+            else:
+                prev_hiddens = [encoder_hiddens[i] for i in range(self.num_layers)]
+
+        input_feed = x.new_zeros(batch_size, self.hidden_dim)
 
         outs = []
         for j in range(seqlen):
@@ -96,18 +112,24 @@ class RecurrentDecoder(BaseDecoder):
             input = torch.cat((x[j, :, :], input_feed), dim=1)
 
             for i, rnn in enumerate(self.layers):
-                # recurrent cell
-                hiddens = rnn(input, prev_hiddens_t[i])
+                # different cell type between encoder and decoder
+                # if not isinstance(encoder_hiddens, tuple) and self.mode == "LSTM":
+                if self.mode == "LSTM":
+                    hidden, cell = rnn(input, (prev_hiddens[i], prev_cells[i]))
+                else:
+                    hidden = rnn(input, prev_hiddens[i])
 
                 # hidden state becomes the input to the next layer
-                input = self.dropout_out_module(hiddens[0])
+                input = self.dropout_out_module(hidden)
                 if self.residuals:
-                    input = input + prev_hiddens_t[i][0]
+                    input = input + prev_hiddens[i]
 
                 # save state for next time step
-                prev_hiddens_t[i] = hiddens
+                prev_hiddens[i] = hidden
+                if self.mode == "LSTM":
+                    prev_cells[i] = cell
 
-            out = hiddens[0]
+            out = hidden
             out = self.dropout_out_module(out)
 
             input_feed = out
@@ -116,11 +138,14 @@ class RecurrentDecoder(BaseDecoder):
             outs.append(out)
 
         # collect outputs across time steps
-        x = torch.cat(outs, dim=0).view(seqlen, bsz, self.hidden_dim)
+        x = torch.cat(outs, dim=0).view(seqlen, batch_size, self.hidden_dim)
 
         # T x B x C -> B x T x C
         x = x.transpose(1, 0)
 
-        hidden_t = tuple(torch.stack(i) for i in zip(*prev_hiddens_t))
+        if self.mode == "LSTM":
+            hidden_t = torch.stack(prev_hiddens), torch.stack(prev_cells)
+        else:
+            hidden_t = torch.stack(prev_hiddens)
 
         return x, State(hidden=hidden_t)

@@ -3,14 +3,15 @@ from importlib import import_module
 
 import ignite.distributed as idist
 import torch
-from torch import nn
 from catbird.core import Config  # type: ignore
+from catbird.core import build_from_cfg
 from ignite.handlers import Checkpoint
 from ignite.utils import setup_logger
-from catbird.core import build_from_cfg
-from .utils import freeze_params
+from torch import nn
 
-from .registry import GENERATORS, ENCODERS, GRAPH_ENCODERS, DECODERS
+from .registry import (DECODERS, DISCRIMINATORS, ENCODERS, GENERATORS,
+                       GRAPH_ENCODERS)
+from .utils import freeze_params
 
 
 def build(cfg, registry, default_args=None):
@@ -38,10 +39,14 @@ def build_generator(cfg: Config) -> nn.Module:
 
     # HARDCODED OVERWRITE
     if isinstance(cfg.model, dict) and "type" in cfg.model:
-        cfg.model.encoder.vocabulary_size = cfg.embedding_length
-        cfg.model.encoder.pad_token_id = cfg.pad_token_id
-        cfg.model.decoder.vocabulary_size = cfg.embedding_length
-        cfg.model.decoder.pad_token_id = cfg.pad_token_id
+        if cfg.model.type == "HuggingFaceWrapper":
+            cfg.model.vocabulary_size = cfg.embedding_length
+        else:
+            for key in cfg.model:
+                if key == "type":
+                    continue
+                cfg.model[key].vocabulary_size = cfg.embedding_length
+                cfg.model[key].pad_token_id = cfg.pad_token_id
         model = build_generator2(cfg.model)
     else:
         model_name = cfg.model.name.lower().split("-")[0]
@@ -75,9 +80,14 @@ def build_generator2(cfg):
 def build_encoder(cfg):
     return build(cfg, ENCODERS)
 
+
 def build_graph_encoder(cfg):
     return build(cfg, GRAPH_ENCODERS)
 
 
 def build_decoder(cfg):
     return build(cfg, DECODERS)
+
+
+def build_discriminator(cfg):
+    return build(cfg, DISCRIMINATORS)

@@ -1,4 +1,4 @@
 """Import facility for 'losses' classes and functions."""
-from .sentence_embedding_loss import sent_emb_loss
+from .pair_wise_discriminator_loss import pair_wise_loss
 
-__all__ = ["sent_emb_loss"]
+__all__ = ["pair_wise_loss"]

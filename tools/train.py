@@ -1,22 +1,20 @@
 """File to train a paraphrase generator."""
 import argparse
 import warnings
+from functools import partial
 from pathlib import Path
 
 import ignite.distributed as idist
 from catbird.apis import create_evaluator, create_trainer
-from catbird.core import (Config, log_basic_info, log_metrics,
+from catbird.core import (Config, build_optimizer, log_basic_info, log_metrics,
                           mkdir_or_exist)
-from catbird.core import build_optimizer
 from catbird.datasets import build_dataset, get_dataloader
 from catbird.models import build_generator
 from catbird.tokenizers import build_tokenizer
 from ignite.contrib.engines import common
 from ignite.engine import Events
 from ignite.handlers import Checkpoint, DiskSaver, global_step_from_engine
-from ignite.metrics import Bleu
 from ignite.utils import manual_seed, setup_logger
-from functools import partial
 
 warnings.filterwarnings("ignore")
 
@@ -44,10 +42,9 @@ def parse_args():
 def training(local_rank, cfg, args):
     rank = idist.get_rank()
     manual_seed(args.seed + rank)
-    device = idist.device()
 
     logger = setup_logger(name="Train", distributed_rank=local_rank)
-    log_basic_info(logger, cfg)
+    # log_basic_info(logger, cfg)
 
     tokenizer = build_tokenizer(cfg)
     cfg.embedding_length = len(tokenizer)
@@ -60,11 +57,14 @@ def training(local_rank, cfg, args):
         cfg.resume_from = args.resume_from
         logger.info(f"Resuming model from '{cfg.resume_from}'")
     model = build_generator(cfg)
+    print(model)
+
     optimizer = build_optimizer(model, cfg.optimizer)
 
     trainer = create_trainer(cfg, model, optimizer, train_dataloader.sampler, logger)
 
-    best_model_handler = partial(Checkpoint,
+    best_model_handler = partial(
+        Checkpoint,
         {"model": model},
         DiskSaver(dirname=cfg.work_dir.as_posix(), require_empty=False),
         filename_prefix="best",
@@ -92,13 +92,13 @@ def training(local_rank, cfg, args):
             log_metrics(
                 logger, state.times["COMPLETED"], "Validation", state.output, epoch
             )
+
     else:
         # best_model_handler = best_model_handler(
         #     score_name="train_loss",
         #     score_function=Checkpoint.get_default_score_fn("batch loss"),
         # )
         trainer.add_event_handler(Events.COMPLETED, best_model_handler())
-
 
     if rank == 0:
         evaluators = {"val": evaluator} if (not args.no_validate) else None
@@ -107,7 +107,7 @@ def training(local_rank, cfg, args):
         )
 
     try:
-        state = trainer.run(
+        trainer.run(
             train_dataloader,
             max_epochs=cfg.train.num_epochs,
             epoch_length=cfg.train.epoch_length,

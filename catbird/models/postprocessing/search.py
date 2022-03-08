@@ -5,6 +5,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 import heapq
+import torch
 
 
 class Sequence(object):
@@ -115,6 +116,21 @@ class SequenceGenerator(object):
         self.max_sequence_length = max_sequence_length
         self.length_normalization_factor = length_normalization_factor
         self.length_normalization_const = length_normalization_const
+
+    def greedy_search(self, initial_input, initial_state=None):
+        batch_size = len(initial_input)
+
+        seqs = torch.zeros((batch_size, self.max_sequence_length))
+        for t in range(self.max_sequence_length):
+            words, _, _ = self.decode_step(
+                initial_input, initial_state,
+                k=1,
+                feed_all_timesteps=True,
+            )
+            seqs[:, t] = words[:, 0]
+
+        return seqs.int()
+
 
     def beam_search(self, initial_input, initial_state=None):
         """Runs beam search sequence generation on a single image.

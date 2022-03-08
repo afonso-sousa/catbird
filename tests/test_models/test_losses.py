@@ -2,10 +2,10 @@ import math
 
 import pytest
 import torch
-from catbird.models.losses import sent_emb_loss
+from catbird.models.losses import pair_wise_loss
 
 
-@pytest.mark.parametrize("loss_method", [sent_emb_loss])
+@pytest.mark.parametrize("loss_method", [pair_wise_loss])
 def test_loss(loss_method):
     pred = torch.rand((32, 512))
     target = torch.rand((32, 512))

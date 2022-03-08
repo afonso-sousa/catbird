@@ -49,10 +49,13 @@ def default_test_step(
         eos_token_id = tokenizer.eos_token_id if tokenizer.eos_token_id is not None else tokenizer.pad_token_id
 
         y_pred = model.generate(src_ids, eos_token_id=eos_token_id)
-        # y_pred = torch.argmax(out, dim=-1)
+
+        if cfg.data.get("mask_pad_token", False):
+            tgt = torch.where(tgt != -100, tgt, tokenizer.pad_token_id)
 
         preds = ids_to_clean_text(y_pred)
         tgt = ids_to_clean_text(tgt)
+        
         preds = [_preds.split() for _preds in preds]
         tgt = [[_tgt.split()] for _tgt in tgt]
 

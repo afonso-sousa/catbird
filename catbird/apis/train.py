@@ -38,11 +38,10 @@ def default_train_step(
         accumulation_steps = cfg.train.get("accumulation_steps", 1)
         with_amp = cfg.train.get("with_amp", False)
 
-        if cfg.data.get("tokenizer", None):
-            ignore_index = -100
-        else:
-            ignore_index = cfg.pad_token_id
-        loss_fct = CrossEntropyLoss(ignore_index=ignore_index)
+        # if cfg.data.get("tokenizer", None):
+        #     ignore_index = -100
+        # else:
+        #     ignore_index = cfg.pad_token_id
 
         model.train()
 
@@ -52,14 +51,8 @@ def default_train_step(
                 for (k, v) in batch.items()
             }
 
-        tgt = batch["tgt"]
-
         with autocast(enabled=with_amp):
-            net_output, _ = model(**batch)
-
-            loss = loss_fct(
-                net_output.reshape(-1, net_output.size(-1)), tgt.reshape(-1)
-            )
+            loss = model(**batch, return_loss=True)
 
             loss /= accumulation_steps
 
@@ -93,7 +86,7 @@ def default_evaluate_step(
 
     @torch.no_grad()
     def routine(engine, batch):
-        if cfg.data.get("tokenizer", None):
+        if cfg.data.get("mask_pad_token", False):
             ignore_index = -100
         else:
             ignore_index = cfg.pad_token_id
@@ -109,9 +102,9 @@ def default_evaluate_step(
 
         tgt = batch["tgt"]
         
-        net_output, _ = model(**batch)
+        logits = model(**batch, return_loss=False)
 
-        output = net_output.reshape(-1, net_output.size(-1))
+        output = logits.reshape(-1, logits.size(-1))
         target = tgt.reshape(-1)
         loss = loss_fct(output, target)
         nll = F.nll_loss(output, target, ignore_index=ignore_index)
@@ -142,7 +135,7 @@ def create_trainer(
         optimizer (optim.Optimizer): train optimizer.
         train_sampler (Union[Sampler, Iterable]): defines the strategy to draw
             samples from the dataset.
-        logger ([type]): object to log progress to the CLI.
+        logger (Logger): object to log progress to the CLI.
 
     Returns:
         Engine: Object to run the defined train step over each batch of a dataset.
