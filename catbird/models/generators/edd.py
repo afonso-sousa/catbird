@@ -17,8 +17,8 @@ class EDD(Seq2Seq):
     using Sequential Pair-wise Discriminator <https://aclanthology.org/C18-1230/>`.
     """
 
-    def __init__(self, encoder, decoder, discriminator):
-        super(EDD, self).__init__(encoder, decoder)
+    def __init__(self, decoder_start_token_id, encoder, decoder, discriminator):
+        super(EDD, self).__init__(decoder_start_token_id, encoder, decoder)
         self.discriminator = build_discriminator(discriminator)
 
     def forward(self, input_ids, prev_output_tokens, tgt, return_loss=True, **kwargs):

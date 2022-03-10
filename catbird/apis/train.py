@@ -38,11 +38,11 @@ def default_train_step(
         accumulation_steps = cfg.train.get("accumulation_steps", 1)
         with_amp = cfg.train.get("with_amp", False)
 
-        # if cfg.data.get("tokenizer", None):
-        #     ignore_index = -100
-        # else:
-        #     ignore_index = cfg.pad_token_id
-
+        if cfg.data.get("mask_pad_token", False):
+            ignore_index = -100
+        else:
+            ignore_index = cfg.pad_token_id
+        
         model.train()
 
         if batch["tgt"].device != device:
@@ -52,7 +52,7 @@ def default_train_step(
             }
 
         with autocast(enabled=with_amp):
-            loss = model(**batch, return_loss=True)
+            loss = model(**batch, return_loss=True, ignore_index=ignore_index)
 
             loss /= accumulation_steps
 
@@ -86,12 +86,6 @@ def default_evaluate_step(
 
     @torch.no_grad()
     def routine(engine, batch):
-        if cfg.data.get("mask_pad_token", False):
-            ignore_index = -100
-        else:
-            ignore_index = cfg.pad_token_id
-        loss_fct = CrossEntropyLoss(ignore_index=ignore_index)
-        
         model.eval()
 
         if batch["tgt"].device != device:
@@ -101,15 +95,18 @@ def default_evaluate_step(
             }
 
         tgt = batch["tgt"]
+        tgt = torch.where(tgt != -100, tgt, cfg.pad_token_id)
         
         logits = model(**batch, return_loss=False)
 
         output = logits.reshape(-1, logits.size(-1))
         target = tgt.reshape(-1)
+        
+        loss_fct = CrossEntropyLoss(ignore_index=cfg.pad_token_id)
         loss = loss_fct(output, target)
-        nll = F.nll_loss(output, target, ignore_index=ignore_index)
+        nll = F.nll_loss(output, target)
         _, argmax = output.max(-1)
-        invalid_targets = target.eq(ignore_index)
+        invalid_targets = target.eq(cfg.pad_token_id)
         accuracy = argmax.eq(target).masked_fill_(invalid_targets, 0)\
             .long().sum() / target.size(0)
 

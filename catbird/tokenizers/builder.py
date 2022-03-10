@@ -23,6 +23,6 @@ def build_tokenizer(cfg: Config) -> AutoTokenizer:
         print(
             "The model name does not match an existing tokenizer. Returning bert-base-uncased pretrained tokenizer."
         )
-        tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
+        tokenizer = AutoTokenizer.from_pretrained("t5-small")
     finally:
         return tokenizer

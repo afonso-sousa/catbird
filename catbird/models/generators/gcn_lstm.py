@@ -10,11 +10,11 @@ class GCNLSTM(Seq2Seq):
     """
 
     def __init__(self,
+                decoder_start_token_id,
                 graph_encoder,
                 encoder,
                 decoder):
-        super(GCNLSTM, self).__init__(encoder, decoder)
-        # self.graph_layer = IETripleGraph(**graph_layer)
+        super(GCNLSTM, self).__init__(decoder_start_token_id, encoder, decoder)
         self.graph_encoder = build_graph_encoder(graph_encoder)
 
     def forward(self, input_ids, ie_graph, prev_output_tokens, **kwargs):

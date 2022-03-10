@@ -51,6 +51,7 @@ class TestDatasets(unittest.TestCase):
             assert src_ids.shape == tgt.shape
 
         prev_output_tokens = sample_batch["prev_output_tokens"]
+
         if self.tokenizer.eos_token_id is None:
             assert torch.all(
                 prev_output_tokens.eq(
@@ -63,6 +64,52 @@ class TestDatasets(unittest.TestCase):
                     torch.cat((torch.full((src_ids.size(0), 1), self.tokenizer.eos_token_id), src_ids[:, :-1]), dim=1)
                 )
             )
+            
+    def test_prev_output_tokens(self):
+        cfg_dict = dict(
+            num_workers=4,
+            data=dict(
+                max_length=80,
+                train=dict(dataset_length=-1),
+                val=dict(dataset_length=2000),
+            ),
+            train=dict(batch_size=32),
+            model=dict(name="t5-small"),
+        )
+        cfg = Config(cfg_dict)
+        cfg.dataset_name = "Quora"
+        cfg.data_root = "data/quora/"
+        tokenizer = build_tokenizer(cfg)
+        val_dataset = build_dataset(cfg, "val", tokenizer)
+        val_loader = get_dataloader(cfg, "val", val_dataset)
+        sample_batch = next(iter(val_loader))
+        input_ids = sample_batch["input_ids"]
+        prev_output_tokens = sample_batch["prev_output_tokens"]
+        tgt = sample_batch["tgt"]
+        
+        t = tokenizer.decode(prev_output_tokens[0], skip_special_tokens=False)
+        print(t)
+        print(input_ids)
+        print(_shift_right(input_ids, tokenizer.eos_token_id))
+        assert False
+        
+   
+        if tokenizer.eos_token_id is None:
+            assert torch.all(
+                prev_output_tokens.eq(
+                    torch.cat((input_ids[:, -1:], tgt[:, :-1]), dim=1)
+                )
+            )
+        else:
+            assert torch.all(
+                prev_output_tokens.eq(
+                    torch.cat((torch.full((input_ids.size(0), 1), tokenizer.eos_token_id), tgt[:, :-1]), dim=1)
+                )
+            )
+
+
+
+
 
     def test_quora_val_batches(self):
         self.cfg.dataset_name = "Quora"

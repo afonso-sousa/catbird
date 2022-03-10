@@ -1,10 +1,10 @@
 """Class for generating sequences
 Adapted from https://github.com/eladhoffer/seq2seq.pytorch/blob/master/seq2seq/tools/beam_search.py"""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
+
 import heapq
+
 import torch
 
 
@@ -122,15 +122,10 @@ class SequenceGenerator(object):
 
         seqs = torch.zeros((batch_size, self.max_sequence_length))
         for t in range(self.max_sequence_length):
-            words, _, _ = self.decode_step(
-                initial_input, initial_state,
-                k=1,
-                feed_all_timesteps=True,
-            )
+            words, _, _ = self.decode_step(initial_input, initial_state, k=1,)
             seqs[:, t] = words[:, 0]
 
         return seqs.int()
-
 
     def beam_search(self, initial_input, initial_state=None):
         """Runs beam search sequence generation on a single image.
@@ -147,10 +142,7 @@ class SequenceGenerator(object):
         complete_sequences = [TopN(self.beam_size) for _ in range(batch_size)]
 
         words, logprobs, new_state = self.decode_step(
-            initial_input,
-            initial_state,
-            k=self.beam_size,
-            feed_all_timesteps=True,
+            initial_input, initial_state, k=self.beam_size,
         )
 
         for b in range(batch_size):
@@ -188,9 +180,7 @@ class SequenceGenerator(object):
             # Feed current hypotheses through the model, and receive new outputs and states
             # logprobs are needed to rank hypotheses
             words, logprobs, new_states = self.decode_step(
-                input_feed,
-                state_feed,
-                k=self.beam_size + 1,
+                input_feed, state_feed, k=self.beam_size + 1,
             )
 
             idx = 0
@@ -235,4 +225,6 @@ class SequenceGenerator(object):
             if not complete_sequences[b].size():
                 complete_sequences[b] = partial_sequences[b]
         seqs = [complete.extract(sort=True)[0] for complete in complete_sequences]
-        return seqs
+        
+        preds = torch.tensor([[el.item() for el in s.output[1:]] for s in seqs])
+        return preds

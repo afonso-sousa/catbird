@@ -3,12 +3,12 @@ from torch import nn
 
 from ..registry import DECODERS
 from ..state import State
-from ..utils import RecurrentCell
+from ..utils import Recurrent, RecurrentCell
 from .base_decoder import BaseDecoder
 
 
 @DECODERS.register_module
-class RecurrentDecoder(BaseDecoder):
+class RecurrentDecoder2(BaseDecoder):
     def __init__(
         self,
         vocabulary_size,
@@ -148,4 +148,78 @@ class RecurrentDecoder(BaseDecoder):
         else:
             hidden_t = torch.stack(prev_hiddens)
 
+        return x, State(hidden=hidden_t)
+
+
+@DECODERS.register_module
+class RecurrentDecoder(nn.Module):
+    def __init__(
+        self,
+        vocabulary_size,
+        pad_token_id=None,
+        hidden_size=128,
+        embedding_size=None,
+        num_layers=1,
+        bias=True,
+        dropout_in=0,
+        dropout_out=0,
+        mode="LSTM",
+        residual=False,
+    ):
+        super(RecurrentDecoder, self).__init__()
+        embedding_size = embedding_size or hidden_size
+        self.num_layers = num_layers
+        self.pad_token_id = pad_token_id
+        self.hidden_size = hidden_size
+        self.embed_tokens = nn.Embedding(
+            num_embeddings=vocabulary_size,
+            embedding_dim=embedding_size,
+            padding_idx=self.pad_token_id,
+        )
+        self.dropout_in_module = nn.Dropout(p=dropout_in)
+        self.dropout_out_module = nn.Dropout(p=dropout_out)
+        self.rnn = Recurrent(
+            mode,
+            embedding_size,
+            self.hidden_size,
+            num_layers=num_layers,
+            bias=bias,
+            batch_first=True,
+            residual=residual,
+            dropout=dropout_out,
+            bidirectional=False,
+        )
+
+        self.dropout = nn.Dropout(dropout_out)
+        self.fc_out = nn.Linear(hidden_size, vocabulary_size)
+
+
+    def forward(self, prev_output_tokens, state, **kwargs):
+        """
+        cfg:
+            prev_output_tokens (LongTensor): previous decoder outputs of shape
+                `(batch, tgt_len)`, for teacher forcing
+            encoder_out (Tensor, optional): output from the encoder, used for
+                encoder-side attention
+
+        Returns:
+            tuple:
+                - the last decoder layer's output of shape
+                  `(batch, tgt_len, vocab)`
+                - the last decoder layer's attention weights of shape
+                  `(batch, tgt_len, src_len)`
+        """
+        x, new_state = self.extract_features(prev_output_tokens, state)
+        return self.fc_out(x), new_state
+
+
+    def extract_features(self, prev_output_tokens, state):
+        hidden = state.hidden
+        # hiddens, cells = state.hidden
+        # hiddens = hiddens[:self.num_layers]
+        # cells = cells[:self.num_layers]
+        x = self.embed_tokens(prev_output_tokens)
+        emb = self.dropout_in_module(x)
+        x, hidden_t = self.rnn(emb, hidden)
+        x = self.dropout_out_module(x)
         return x, State(hidden=hidden_t)

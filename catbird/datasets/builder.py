@@ -64,7 +64,7 @@ def get_dataloader(cfg: Config, split: str, dataset: Dataset) -> DataLoader:
             batch_size=cfg.train.batch_size * (1 if split == "train" else 2),
             num_workers=cfg.num_workers,
             shuffle=(True if split == "train" else False),
-            drop_last=(True if split == "train" else False),
+            drop_last=(True if split in ["train", "test"] else False),
         )
     else:
         # Setup data loader also adapted to distributed config: nccl, gloo, xla-tpu
@@ -73,6 +73,6 @@ def get_dataloader(cfg: Config, split: str, dataset: Dataset) -> DataLoader:
             batch_size=cfg.train.batch_size * (1 if split == "train" else 2),
             num_workers=cfg.num_workers,
             shuffle=(True if split == "train" else False),
-            drop_last=(True if split == "train" else False),
+            drop_last=(True if split in ["train", "test"] else False),
         )
     return loader

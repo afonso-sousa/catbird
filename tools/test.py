@@ -7,7 +7,7 @@ import torch
 from catbird.apis import create_tester
 from catbird.core import TER, Config, Meteor, mkdir_or_exist, log_metrics
 from catbird.datasets import build_dataset, get_dataloader
-from catbird.models import build_generator
+from catbird.models import build_generator_model
 from catbird.tokenizers import build_tokenizer
 from ignite.contrib.engines import common
 from ignite.engine import Events
@@ -64,11 +64,12 @@ def main():
     tokenizer = build_tokenizer(cfg)
     cfg.embedding_length = len(tokenizer)
     cfg.pad_token_id = tokenizer.pad_token_id
+    cfg.decoder_start_token_id = tokenizer.eos_token_id if tokenizer.eos_token_id else tokenizer.pad_token_id
 
     val_dataset = build_dataset(cfg, "val", tokenizer)
-    val_dataloader = get_dataloader(cfg, "val", val_dataset)
+    val_dataloader = get_dataloader(cfg, "test", val_dataset)
 
-    model = build_generator(cfg)
+    model = build_generator_model(cfg)
     
     num_parameters = sum([l.nelement() for l in model.parameters()])
     logger.info(f"Model's # of parameters: {num_parameters}")

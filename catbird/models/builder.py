@@ -22,7 +22,7 @@ def build(cfg, registry, default_args=None):
         return build_from_cfg(cfg, registry, default_args)
 
 
-def build_generator(cfg: Config) -> nn.Module:
+def build_generator_model(cfg: Config) -> nn.Module:
     """Abstraction to build models based on the given configurations.
 
     Args:
@@ -47,20 +47,8 @@ def build_generator(cfg: Config) -> nn.Module:
                     continue
                 cfg.model[key].vocabulary_size = cfg.embedding_length
                 cfg.model[key].pad_token_id = cfg.pad_token_id
-        model = build_generator2(cfg.model)
-    else:
-        model_name = cfg.model.name.lower().split("-")[0]
-        module = import_module(f"catbird.models.{model_name}")
-
-        # module_name = filename.stem
-        # if "." in module_name:
-        #     raise ValueError("Dots are not allowed in config file path.")
-        # config_dir = Path(filename).parent
-        # sys.path.insert(0, config_dir.as_posix())
-        # mod = import_module(module_name)
-        # sys.path.pop(0)
-
-        model = getattr(module, "initialize")(cfg)
+        cfg.model.decoder_start_token_id = cfg.decoder_start_token_id
+        model = build_generator(cfg.model)
 
     if cfg.resume_from:
         checkpoint = torch.load(cfg.resume_from)
@@ -69,7 +57,7 @@ def build_generator(cfg: Config) -> nn.Module:
     return model
 
 
-def build_generator2(cfg):
+def build_generator(cfg):
     model = build(cfg, GENERATORS)
     if cfg.freeze_encoder:
         freeze_params(model.get_encoder())

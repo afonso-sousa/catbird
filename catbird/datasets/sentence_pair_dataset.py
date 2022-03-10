@@ -3,10 +3,9 @@
 from typing import Dict, List
 
 import torch
-from catbird.core import Config  # type: ignore
+from catbird.core import Config
 from torch.utils.data import Dataset
 from transformers import AutoTokenizer
-from functools import partial
 
 
 class SentencePairDataset(Dataset):
@@ -44,13 +43,15 @@ class SentencePairDataset(Dataset):
             dict[str, torch.Tensor]: dictionary with src and target sentences as embedding tensors
         """
 
+        # input ids
         src_text = [self.task_prefix + str(self.data[idx]["src"])]
 
-        tgt_text = [str(self.data[idx]["tgt"])]
         input_txt_tokenized = self.tokenizer(
             src_text, max_length=self.max_length, padding="max_length", truncation=True
         )
 
+        # tgt
+        tgt_text = [str(self.data[idx]["tgt"])]
         with self.tokenizer.as_target_tokenizer():
             tgt_text_tokenized = self.tokenizer(
                 tgt_text,
@@ -73,15 +74,7 @@ class SentencePairDataset(Dataset):
         batch = {
             k: torch.tensor(v).squeeze(0) for (k, v) in input_txt_tokenized.items()
         }
-
-        prev_output_tokens = batch["tgt"].clone()
-        if self.tokenizer.eos_token_id is None:
-            prev_output_tokens[0] = batch["input_ids"][-1]
-        else:
-            prev_output_tokens[0] = self.tokenizer.eos_token_id
-        prev_output_tokens[1:] = batch["tgt"][:-1]
-
-        batch["prev_output_tokens"] = prev_output_tokens
+        
         batch["src_lengths"] = torch.sum(
             batch["input_ids"].ne(self.tokenizer.pad_token_id)
         )

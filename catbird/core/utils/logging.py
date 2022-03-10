@@ -34,7 +34,7 @@ def log_basic_info(logger: Logger, config: Config) -> None:
         logger (Logger): Logger instance.
         config (Config): Configuration information.
     """
-    logger.info(f"Train on {config.dataset_name}")
+    logger.info(f"Train on {config.data.dataset_name}")
     logger.info(f"- PyTorch version: {torch.__version__}")
     logger.info(f"- Ignite version: {ignite.__version__}")
     if torch.cuda.is_available():

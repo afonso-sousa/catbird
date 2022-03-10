@@ -14,11 +14,8 @@ data = dict(
 
 # train settings
 train = dict(
-    num_epochs=50,
+    num_epochs=10,
     batch_size=32,
-    learning_rate=1e-4,
-    weight_decay=1e-2,
-    epoch_length=500,
     accumulation_steps=1,
     with_amp=False,
 )
@@ -27,8 +24,9 @@ train = dict(
 model = dict(
     type="StackedResidualLSTM",
     encoder=dict(type="RecurrentEncoder", num_layers=2,),
-    decoder=dict(type="RecurrentDecoder", hidden_dim=128,),
+    decoder=dict(type="RecurrentDecoder", num_layers=2,),
 )
 
 # optimizer settings
-optimizer = dict(type="SGD", lr=0.02, momentum=0.9, weight_decay=0.0001)
+# optimizer = dict(type="SGD", lr=1e-3, momentum=0.9, weight_decay=1e-2)
+optimizer = dict(type="Adam", lr=1e-2)

@@ -5,7 +5,7 @@ from ignite.utils import manual_seed, setup_logger
 from catbird.core import Config, mkdir_or_exist
 from pathlib import Path
 from ignite.handlers import Checkpoint
-from catbird.models import build_generator
+from catbird.models import build_generator_model
 import ignite.distributed as idist
 
 
@@ -61,7 +61,7 @@ if __name__ == "__main__":
     cfg.embedding_length = len(tokenizer)
     cfg.pad_token_id = tokenizer.pad_token_id
 
-    model = build_generator(cfg)
+    model = build_generator_model(cfg)
 
     num_parameters = sum([l.nelement() for l in model.parameters()])
     logger.info(f"Model's # of parameters: {num_parameters}")

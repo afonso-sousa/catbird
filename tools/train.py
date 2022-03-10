@@ -9,7 +9,7 @@ from catbird.apis import create_evaluator, create_trainer
 from catbird.core import (Config, build_optimizer, log_basic_info, log_metrics,
                           mkdir_or_exist)
 from catbird.datasets import build_dataset, get_dataloader
-from catbird.models import build_generator
+from catbird.models import build_generator_model
 from catbird.tokenizers import build_tokenizer
 from ignite.contrib.engines import common
 from ignite.engine import Events
@@ -49,6 +49,7 @@ def training(local_rank, cfg, args):
     tokenizer = build_tokenizer(cfg)
     cfg.embedding_length = len(tokenizer)
     cfg.pad_token_id = tokenizer.pad_token_id
+    cfg.decoder_start_token_id = tokenizer.eos_token_id if tokenizer.eos_token_id else tokenizer.pad_token_id
 
     train_dataset = build_dataset(cfg, "train", tokenizer)
     train_dataloader = get_dataloader(cfg, "train", train_dataset)
@@ -56,7 +57,7 @@ def training(local_rank, cfg, args):
     if args.resume_from is not None:
         cfg.resume_from = args.resume_from
         logger.info(f"Resuming model from '{cfg.resume_from}'")
-    model = build_generator(cfg)
+    model = build_generator_model(cfg)
     print(model)
 
     optimizer = build_optimizer(model, cfg.optimizer)
@@ -110,7 +111,7 @@ def training(local_rank, cfg, args):
         trainer.run(
             train_dataloader,
             max_epochs=cfg.train.num_epochs,
-            epoch_length=cfg.train.epoch_length,
+            epoch_length=cfg.train.get("epoch_length", None),
         )
     except Exception as e:
         logger.exception("")

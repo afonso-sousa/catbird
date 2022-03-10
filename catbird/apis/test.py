@@ -45,10 +45,8 @@ def default_test_step(
 
         src_ids = batch["input_ids"]
         tgt = batch["tgt"]
-        
-        eos_token_id = tokenizer.eos_token_id if tokenizer.eos_token_id is not None else tokenizer.pad_token_id
 
-        y_pred = model.generate(src_ids, eos_token_id=eos_token_id)
+        y_pred = model.generate(src_ids)
 
         if cfg.data.get("mask_pad_token", False):
             tgt = torch.where(tgt != -100, tgt, tokenizer.pad_token_id)
