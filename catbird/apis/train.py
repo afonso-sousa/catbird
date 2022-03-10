@@ -140,14 +140,7 @@ def create_trainer(
     device = idist.device()
     scaler = GradScaler(enabled=cfg.train.with_amp)
 
-    if isinstance(cfg.model, dict) and "type" in cfg.model:
-        train_step = default_train_step(cfg, model, optimizer, device, scaler)
-    else:
-        model_name = cfg.model.name.lower().split("-")[0]
-        module = import_module(f"catbird.models.{model_name}")
-        train_step = getattr(module, "train_step")(
-            cfg, model, optimizer, device, scaler
-        )
+    train_step = default_train_step(cfg, model, optimizer, device, scaler)
 
     trainer = Engine(train_step)
     trainer.logger = logger
@@ -184,14 +177,7 @@ def create_evaluator(
     """
     device = idist.device()
 
-    if isinstance(cfg.model, dict) and "type" in cfg.model:
-        evaluate_step = default_evaluate_step(cfg, model, device)
-    else:
-        model_name = cfg.model.name.lower().split("-")[0]
-        module = import_module(f"catbird.models.{model_name}")
-        evaluate_step = getattr(module, "evaluate_step")(
-            cfg, model, tokenizer, device, logger
-        )
+    evaluate_step = default_evaluate_step(cfg, model, device)
 
     evaluator = Engine(evaluate_step)
 

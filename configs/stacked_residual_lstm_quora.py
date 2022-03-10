@@ -1,6 +1,5 @@
 # general config settings
 output_path = "./work_dirs"
-print_output_every = 50
 num_workers = 4
 
 # dataset settings
@@ -18,6 +17,11 @@ train = dict(
     batch_size=32,
     accumulation_steps=1,
     with_amp=False,
+)
+
+test = dict(
+    print_output_every = 5,
+    num_beams = 1,
 )
 
 # model settings

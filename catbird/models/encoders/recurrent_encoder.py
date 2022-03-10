@@ -21,10 +21,11 @@ class RecurrentEncoder(nn.Module):
         residual=False,
     ):
         super(RecurrentEncoder, self).__init__()
-        self.layers = num_layers
+        self.num_layers = num_layers
         self.bidirectional = bidirectional
         self.pad_token_id = pad_token_id
         embedding_size = embedding_size or hidden_size
+        self.hidden_size = hidden_size
 
         self.embed_tokens = nn.Embedding(
             num_embeddings=vocabulary_size,
@@ -47,10 +48,18 @@ class RecurrentEncoder(nn.Module):
         
 
     def forward(self, input_ids, **kwargs):
+        batch_size = input_ids.size(0)
+        
         x = self.embed_tokens(input_ids)
         x = self.dropout(x)
 
-        outs, hidden = self.rnn(x)
+        if self.bidirectional:
+            state_size = 2 * self.num_layers, batch_size, self.hidden_size
+        else:
+            state_size = self.num_layers, batch_size, self.hidden_size
+        h0 = x.new_zeros(*state_size)
+        c0 = x.new_zeros(*state_size)
+        outs, hidden = self.rnn(x, (h0, c0))
 
         state = State(
             outputs=outs,  # batch x seq_len x hidden

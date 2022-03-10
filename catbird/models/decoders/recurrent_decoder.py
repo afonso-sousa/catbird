@@ -22,7 +22,7 @@ class RecurrentDecoder2(BaseDecoder):
         mode="LSTM",
         residuals=False,
     ):
-        super(RecurrentDecoder, self).__init__()
+        super(RecurrentDecoder2, self).__init__()
         self.hidden_dim = hidden_dim
         self.num_layers = num_layers
         self.mode = mode

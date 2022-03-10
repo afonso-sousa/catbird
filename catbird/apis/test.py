@@ -11,6 +11,8 @@ from ignite.engine import Engine
 from torch import nn
 from transformers import AutoTokenizer
 
+from catbird.models.generators.base import Seq2Seq
+
 
 def default_test_step(
     cfg: Config,
@@ -46,7 +48,10 @@ def default_test_step(
         src_ids = batch["input_ids"]
         tgt = batch["tgt"]
 
-        y_pred = model.generate(src_ids)
+        if isinstance(model, Seq2Seq):
+            y_pred = model.generate(src_ids, num_beams = cfg.test.get("num_beams", 1))
+        else:
+            y_pred = model.generate(src_ids)
 
         if cfg.data.get("mask_pad_token", False):
             tgt = torch.where(tgt != -100, tgt, tokenizer.pad_token_id)
@@ -57,7 +62,7 @@ def default_test_step(
         preds = [_preds.split() for _preds in preds]
         tgt = [[_tgt.split()] for _tgt in tgt]
 
-        if engine.state.iteration % cfg.print_output_every == 0:
+        if engine.state.iteration % cfg.test.print_output_every == 0:
             logger.info(f'\n Preds : {" ".join(preds[0])} \n')
             logger.info(f'\n Target : {" ".join(tgt[0][0])} \n')
         return preds, tgt
@@ -86,14 +91,7 @@ def create_tester(
     """
     device = idist.device()
 
-    if isinstance(cfg.model, dict) and "type" in cfg.model:
-        test_step = default_test_step(cfg, model, tokenizer, device, logger)
-    else:
-        model_name = cfg.model.name.lower().split("-")[0]
-        module = import_module(f"catbird.models.{model_name}")
-        test_step = getattr(module, "test_step")(
-            cfg, model, tokenizer, device, logger
-        )
+    test_step = default_test_step(cfg, model, tokenizer, device, logger)
 
     tester = Engine(test_step)
     

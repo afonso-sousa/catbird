@@ -117,13 +117,14 @@ class SequenceGenerator(object):
         self.length_normalization_factor = length_normalization_factor
         self.length_normalization_const = length_normalization_const
 
-    def greedy_search(self, initial_input, initial_state=None):
-        batch_size = len(initial_input)
+    def greedy_search(self, decoder_input, state=None):
+        batch_size = len(decoder_input)
 
         seqs = torch.zeros((batch_size, self.max_sequence_length))
         for t in range(self.max_sequence_length):
-            words, _, _ = self.decode_step(initial_input, initial_state, k=1,)
+            words, _, state = self.decode_step(decoder_input, state, k=1,)
             seqs[:, t] = words[:, 0]
+            decoder_input = words.tolist()
 
         return seqs.int()
 

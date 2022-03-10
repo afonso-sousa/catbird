@@ -105,7 +105,7 @@ class Seq2Seq(nn.Module):
     def generate(
         self,
         input_encoder,
-        beam_size=3,
+        num_beams=3,
         max_sequence_length=50,
         length_normalization_factor=0,
         get_attention=False,
@@ -117,10 +117,10 @@ class Seq2Seq(nn.Module):
         )
         state_list = state.as_list()
         
-        if beam_size > 1:
+        if num_beams > 1:
             generator = SequenceGenerator(
                 decode_step=self._decode_step,
-                beam_size=beam_size,
+                beam_size=num_beams,
                 max_sequence_length=max_sequence_length,
                 length_normalization_factor=length_normalization_factor,
             )

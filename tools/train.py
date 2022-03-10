@@ -86,7 +86,7 @@ def training(local_rank, cfg, args):
         # )
         evaluator.add_event_handler(Events.COMPLETED, best_model_handler())
 
-        @trainer.on(Events.EPOCH_COMPLETED(every=1) | Events.COMPLETED | Events.STARTED)
+        @trainer.on(Events.EPOCH_COMPLETED(every=1) | Events.COMPLETED)
         def run_validation():
             epoch = trainer.state.epoch
             state = evaluator.run(val_dataloader)
