@@ -29,7 +29,7 @@ def build_dataset(cfg: Config, split: str, tokenizer: AutoTokenizer) -> Tuple[Da
     """
     logger = setup_logger(name="Dataset", distributed_rank=idist.get_rank())
     logger.info(f"Loading {cfg.dataset_name} dataset")
-    [logger.info(f"{k} - {v}") for k, v in cfg.data.items()]
+    # [logger.info(f"{k} - {v}") for k, v in cfg.data.items()]
 
     if cfg.dataset_name.lower() in ["quora", "mscoco"]:
         data = load(Path(cfg.data_root) / f"{cfg.dataset_name.lower()}_{split}.pkl")

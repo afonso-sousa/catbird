@@ -190,7 +190,6 @@ class RecurrentDecoder(nn.Module):
             bidirectional=False,
         )
 
-        self.dropout = nn.Dropout(dropout_out)
         self.fc_out = nn.Linear(hidden_size, vocabulary_size)
 
 
@@ -223,3 +222,15 @@ class RecurrentDecoder(nn.Module):
         x, hidden_t = self.rnn(emb, hidden)
         x = self.dropout_out_module(x)
         return x, State(hidden=hidden_t)
+    
+
+    # def extract_features(self, prev_output_tokens, state):
+    #     hidden = state.hidden
+    #     # hiddens, cells = state.hidden
+    #     # hiddens = hiddens[:self.num_layers]
+    #     # cells = cells[:self.num_layers]
+    #     x = self.embed_tokens(prev_output_tokens).unsqueeze(1)
+    #     emb = self.dropout_in_module(x)
+    #     x, hidden_t = self.rnn(emb, hidden) # [batch_size, 1, hidden_size], ([num_layers, batch_size, hidden_size])
+    #     x = self.dropout_out_module(x)
+    #     return x.squeeze(1), State(hidden=hidden_t)

@@ -85,13 +85,13 @@ class TopN(object):
         self._data = []
 
 
-class SequenceGenerator(object):
+class SequenceGenerator:
     """Class to generate sequences from an image-to-text model."""
 
     def __init__(
         self,
         decode_step,
-        eos_id=2,
+        eos_token_id=2,
         beam_size=3,
         max_sequence_length=50,
         length_normalization_factor=0.0,
@@ -100,7 +100,7 @@ class SequenceGenerator(object):
         """Initializes the generator.
         Args:
           deocde_step: function, with inputs: (input, state) and outputs len(vocab) values
-          eos_id: the token number symobling the end of sequence
+          eos_token_id: the token number symobling the end of sequence
           beam_size: Beam size to use when generating sequences.
           max_sequence_length: The maximum sequence length before stopping the search.
           length_normalization_factor: If != 0, a number x such that sequences are
@@ -111,7 +111,7 @@ class SequenceGenerator(object):
           length_normalization_const: 5 in https://arxiv.org/abs/1609.08144
         """
         self.decode_step = decode_step
-        self.eos_id = eos_id
+        self.eos_token_id = eos_token_id
         self.beam_size = beam_size
         self.max_sequence_length = max_sequence_length
         self.length_normalization_factor = length_normalization_factor
@@ -201,7 +201,7 @@ class SequenceGenerator(object):
                         k += 1
                         num_hyp += 1
 
-                        if w.item() == self.eos_id:
+                        if w.item() == self.eos_token_id:
                             if self.length_normalization_factor > 0:
                                 L = self.length_normalization_const
                                 length_penalty = (L + len(output)) / (L + 1)

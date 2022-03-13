@@ -6,8 +6,8 @@ from pathlib import Path
 
 import ignite.distributed as idist
 from catbird.apis import create_evaluator, create_trainer
-from catbird.core import (Config, build_optimizer, log_basic_info, log_metrics,
-                          mkdir_or_exist)
+from catbird.core import (Config, build_lr_scheduler, build_optimizer,
+                          log_basic_info, log_metrics, mkdir_or_exist)
 from catbird.datasets import build_dataset, get_dataloader
 from catbird.models import build_generator_model
 from catbird.tokenizers import build_tokenizer
@@ -49,7 +49,12 @@ def training(local_rank, cfg, args):
     tokenizer = build_tokenizer(cfg)
     cfg.embedding_length = len(tokenizer)
     cfg.pad_token_id = tokenizer.pad_token_id
-    cfg.decoder_start_token_id = tokenizer.eos_token_id if tokenizer.eos_token_id else tokenizer.pad_token_id
+    cfg.eos_token_id = (
+        tokenizer.eos_token_id if tokenizer.eos_token_id else tokenizer.sep_token_id
+    )
+    cfg.decoder_start_token_id = (
+        tokenizer.eos_token_id if tokenizer.eos_token_id else tokenizer.pad_token_id
+    )
 
     train_dataset = build_dataset(cfg, "train", tokenizer)
     train_dataloader = get_dataloader(cfg, "train", train_dataset)
@@ -58,11 +63,17 @@ def training(local_rank, cfg, args):
         cfg.resume_from = args.resume_from
         logger.info(f"Resuming model from '{cfg.resume_from}'")
     model = build_generator_model(cfg)
-    print(model)
 
     optimizer = build_optimizer(model, cfg.optimizer)
 
-    trainer = create_trainer(cfg, model, optimizer, train_dataloader.sampler, logger)
+    lr_scheduler = build_lr_scheduler(
+        optimizer,
+        cfg.scheduler.peak_lr,
+        cfg.scheduler.num_warmup_epochs,
+        cfg.train.num_epochs,
+        cfg.train.get("epoch_length", len(train_dataset)),
+    )
+    trainer = create_trainer(cfg, model, optimizer, lr_scheduler, train_dataloader.sampler, logger)
 
     best_model_handler = partial(
         Checkpoint,

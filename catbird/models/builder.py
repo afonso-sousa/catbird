@@ -35,9 +35,8 @@ def build_generator_model(cfg: Config) -> nn.Module:
         nn.Module: selected model based on configurations
     """
     logger = setup_logger(name="Model", distributed_rank=idist.get_rank())
-    logger.info(f"Loading {cfg.model.name} dataset")
+    logger.info(f"Loading {cfg.model.name} model")
 
-    # HARDCODED OVERWRITE
     if isinstance(cfg.model, dict) and "type" in cfg.model:
         if cfg.model.type == "HuggingFaceWrapper":
             cfg.model.vocabulary_size = cfg.embedding_length
@@ -47,6 +46,7 @@ def build_generator_model(cfg: Config) -> nn.Module:
                     continue
                 cfg.model[key].vocabulary_size = cfg.embedding_length
                 cfg.model[key].pad_token_id = cfg.pad_token_id
+        cfg.model.eos_token_id = cfg.eos_token_id
         cfg.model.decoder_start_token_id = cfg.decoder_start_token_id
         model = build_generator(cfg.model)
 
@@ -54,13 +54,15 @@ def build_generator_model(cfg: Config) -> nn.Module:
         checkpoint = torch.load(cfg.resume_from)
         Checkpoint.load_objects(to_load={"model": model}, checkpoint=checkpoint)
 
+    logger.info(model)
+
     return model
 
 
 def build_generator(cfg):
     model = build(cfg, GENERATORS)
     if cfg.freeze_encoder:
-        freeze_params(model.get_encoder())
+        freeze_params(model.get_encoder())    
 
     return idist.auto_model(model)
 

@@ -104,7 +104,7 @@ def default_evaluate_step(
         
         loss_fct = CrossEntropyLoss(ignore_index=cfg.pad_token_id)
         loss = loss_fct(output, target)
-        nll = F.nll_loss(output, target)
+        nll = F.nll_loss(output, target, ignore_index=cfg.pad_token_id, reduction='sum')
         _, argmax = output.max(-1)
         invalid_targets = target.eq(cfg.pad_token_id)
         accuracy = argmax.eq(target).masked_fill_(invalid_targets, 0)\
@@ -121,6 +121,7 @@ def create_trainer(
     cfg: Config,
     model: nn.Module,
     optimizer: optim.Optimizer,
+    lr_scheduler: optim.lr_scheduler,
     train_sampler: Optional[DistributedSampler],
     logger: Logger,
 ) -> Engine:
@@ -151,6 +152,7 @@ def create_trainer(
         trainer=trainer,
         train_sampler=train_sampler,
         output_names=metric_names,
+        lr_scheduler=lr_scheduler,
         clear_cuda_cache=False,
         with_pbars=True,
     )

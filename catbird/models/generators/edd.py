@@ -35,27 +35,3 @@ class EDD(Seq2Seq):
         pwd_loss = pair_wise_loss(discriminated_out, discriminated_tgt)
         return cel_loss + pwd_loss
 
-    def generate(
-        self,
-        input_encoder,
-        beam_size=3,
-        max_sequence_length=50,
-        length_normalization_factor=0,
-        autoregressive=True,
-        eos_token_id: Optional[int] = 2,
-    ):
-        batch_size = input_encoder.size(0) if input_encoder.dim() > 1 else 1
-        input_decoder = [[eos_token_id]] * batch_size
-        state = self.forward_encoder(input_encoder,)
-        state_list = state.as_list()
-        params = dict(
-            decode_step=self._decode_step,
-            beam_size=beam_size,
-            max_sequence_length=max_sequence_length,
-            length_normalization_factor=length_normalization_factor,
-        )
-        if autoregressive:
-            generator = SequenceGenerator(**params)
-        seqs = generator.greedy_search(input_decoder, state_list)
-
-        return seqs
