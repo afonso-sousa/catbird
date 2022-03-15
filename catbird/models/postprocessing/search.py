@@ -96,6 +96,7 @@ class SequenceGenerator:
         max_sequence_length=50,
         length_normalization_factor=0.0,
         length_normalization_const=5.0,
+        device=None,
     ):
         """Initializes the generator.
         Args:
@@ -116,17 +117,18 @@ class SequenceGenerator:
         self.max_sequence_length = max_sequence_length
         self.length_normalization_factor = length_normalization_factor
         self.length_normalization_const = length_normalization_const
+        self.device = device
 
-    def greedy_search(self, decoder_input, state=None):
-        batch_size = len(decoder_input)
+    def greedy_search(self, initial_input, state=None):
+        input_ids = initial_input
+        for _ in range(self.max_sequence_length):
+            next_tokens, _, state = self.decode_step(input_ids, state, k=1,)
+            input_ids = torch.tensor(input_ids).to(self.device)
+            print(input_ids.shape)
+            input_ids = torch.cat([input_ids, next_tokens], dim=-1)
+            input_ids = input_ids.tolist()
 
-        seqs = torch.zeros((batch_size, self.max_sequence_length))
-        for t in range(self.max_sequence_length):
-            words, _, state = self.decode_step(decoder_input, state, k=1,)
-            seqs[:, t] = words[:, 0]
-            decoder_input = words.tolist()
-
-        return seqs.int()
+        return input_ids
 
     def beam_search(self, initial_input, initial_state=None):
         """Runs beam search sequence generation on a single image.

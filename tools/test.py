@@ -64,6 +64,9 @@ def main():
     tokenizer = build_tokenizer(cfg)
     cfg.embedding_length = len(tokenizer)
     cfg.pad_token_id = tokenizer.pad_token_id
+    cfg.eos_token_id = (
+        tokenizer.eos_token_id if tokenizer.eos_token_id else tokenizer.sep_token_id
+    )
     cfg.decoder_start_token_id = tokenizer.eos_token_id if tokenizer.eos_token_id else tokenizer.pad_token_id
 
     val_dataset = build_dataset(cfg, "val", tokenizer)

@@ -15,6 +15,7 @@ from torch.nn import CrossEntropyLoss
 from torch.utils.data.distributed import DistributedSampler
 from transformers import AutoTokenizer
 import torch.nn.functional as F
+from catbird.models.generators.base import Seq2Seq
 
 
 def default_train_step(
@@ -42,14 +43,11 @@ def default_train_step(
             ignore_index = -100
         else:
             ignore_index = cfg.pad_token_id
-        
+
         model.train()
 
         if batch["tgt"].device != device:
-            batch = {
-                k: v.to(device, non_blocking=True)
-                for (k, v) in batch.items()
-            }
+            batch = {k: v.to(device) for (k, v) in batch.items()}
 
         with autocast(enabled=with_amp):
             loss = model(**batch, return_loss=True, ignore_index=ignore_index)
@@ -68,11 +66,8 @@ def default_train_step(
     return routine
 
 
-
 def default_evaluate_step(
-    cfg: Config,
-    model: nn.Module,
-    device: Union[str, torch.device],
+    cfg: Config, model: nn.Module, tokenizer, logger,
 ):
     """Decorate evaluate step to add more parameters.
 
@@ -84,35 +79,57 @@ def default_evaluate_step(
         logger (Logger): a Logger instance.
     """
 
+    def ids_to_clean_text(generated_ids):
+        gen_text = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)
+        return list(map(str.strip, gen_text))
+
     @torch.no_grad()
     def routine(engine, batch):
         model.eval()
 
+        device = idist.device()
         if batch["tgt"].device != device:
-            batch = {
-                k: v.to(device, non_blocking=True)
-                for (k, v) in batch.items()
-            }
+            batch = {k: v.to(device, non_blocking=True) for (k, v) in batch.items()}
 
+        src_ids = batch["input_ids"]
         tgt = batch["tgt"]
+
         tgt = torch.where(tgt != -100, tgt, cfg.pad_token_id)
-        
+
+        if isinstance(model, Seq2Seq):
+            y_pred = model.generate(src_ids, num_beams=1)
+        else:
+            y_pred = model.generate(src_ids)
+
+        preds = ids_to_clean_text(y_pred)
+        tgt_text = ids_to_clean_text(tgt)
+
+        preds = [_preds.split() for _preds in preds]
+        tgt_text = [[_tgt.split()] for _tgt in tgt_text]
+
+        logger.info(
+            f'\n Preds: {" ".join(preds[0])} \n\n Target: {" ".join(tgt_text[0][0])} \n'
+        )
+
         logits = model(**batch, return_loss=False)
 
         output = logits.reshape(-1, logits.size(-1))
         target = tgt.reshape(-1)
-        
+
         loss_fct = CrossEntropyLoss(ignore_index=cfg.pad_token_id)
         loss = loss_fct(output, target)
-        nll = F.nll_loss(output, target, ignore_index=cfg.pad_token_id, reduction='sum')
+        nll = F.nll_loss(output, target, ignore_index=cfg.pad_token_id, reduction="sum")
         _, argmax = output.max(-1)
         invalid_targets = target.eq(cfg.pad_token_id)
-        accuracy = argmax.eq(target).masked_fill_(invalid_targets, 0)\
-            .long().sum() / target.size(0)
+        accuracy = argmax.eq(target).masked_fill_(
+            invalid_targets, 0
+        ).long().sum() / target.size(0)
 
-        return {"loss": loss.item(),
-                "nll": nll.item(),
-                "accuracy": accuracy.view(1, 1).item()}
+        return {
+            "loss": loss.item(),
+            "nll": nll.item(),
+            "accuracy": accuracy.view(1, 1).item(),
+        }
 
     return routine
 
@@ -160,10 +177,7 @@ def create_trainer(
 
 
 def create_evaluator(
-    cfg: Config,
-    model: nn.Module,
-    tokenizer: AutoTokenizer,
-    logger: Logger,
+    cfg: Config, model: nn.Module, tokenizer: AutoTokenizer, logger: Logger,
 ) -> Engine:
     """Create an evaluation step for the given model.
 
@@ -177,9 +191,7 @@ def create_evaluator(
     Returns:
         Engine: Object to run the defined evaluation step over each batch of a dataset.
     """
-    device = idist.device()
-
-    evaluate_step = default_evaluate_step(cfg, model, device)
+    evaluate_step = default_evaluate_step(cfg, model, tokenizer, logger)
 
     evaluator = Engine(evaluate_step)
 

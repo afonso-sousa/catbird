@@ -3,8 +3,8 @@ output_path = "./work_dirs"
 num_workers = 4
 
 # dataset settings
-dataset_name = "Quora"
-data_root = "data/quora/"
+dataset_name = "MSCOCO"
+data_root = "data/mscoco/"
 data = dict(
     max_length=50,
     train=dict(dataset_length=-1),
@@ -12,25 +12,15 @@ data = dict(
 )
 
 # train settings
-train = dict(num_epochs=100, batch_size=64, accumulation_steps=1, with_amp=False) # , epoch_length=100)
+train = dict(num_epochs=150, batch_size=32, accumulation_steps=1, with_amp=False,)
 
 test = dict(print_output_every=5, num_beams=1,)
 
 # model settings
 model = dict(
     type="StackedResidualLSTM",
-    encoder=dict(
-        type="RecurrentEncoder",
-        mode="LSTM",
-        num_layers=2,
-        hidden_size=256,
-        dropout=0.5),
-    decoder=dict(
-        type="RecurrentDecoder",
-        mode="LSTM",
-        num_layers=2,
-        hidden_size=256,
-        dropout_in=0.5),
+    encoder=dict(type="RecurrentEncoder", num_layers=2,),
+    decoder=dict(type="RecurrentDecoder", num_layers=2,),
 )
 
 # optimizer settings

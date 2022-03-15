@@ -8,7 +8,9 @@ class StackedResidualLSTM(Seq2Seq):
     with Stacked Residual LSTM Networks <https://aclanthology.org/C16-1275/>`.
     """
 
-    def __init__(self, eos_token_id, decoder_start_token_id, encoder, decoder):
+    def __init__(
+        self, pad_token_id, eos_token_id, decoder_start_token_id, encoder, decoder
+    ):
         super(StackedResidualLSTM, self).__init__(
-            eos_token_id, decoder_start_token_id, encoder, decoder
+            pad_token_id, eos_token_id, decoder_start_token_id, encoder, decoder
         )

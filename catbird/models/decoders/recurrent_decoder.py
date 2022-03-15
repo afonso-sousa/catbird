@@ -5,6 +5,7 @@ from ..registry import DECODERS
 from ..state import State
 from ..utils import Recurrent, RecurrentCell
 from .base_decoder import BaseDecoder
+import torch.nn.functional as F
 
 
 @DECODERS.register_module
@@ -167,6 +168,7 @@ class RecurrentDecoder(nn.Module):
         residual=False,
     ):
         super(RecurrentDecoder, self).__init__()
+        # self.vocabulary_size = vocabulary_size
         embedding_size = embedding_size or hidden_size
         self.num_layers = num_layers
         self.pad_token_id = pad_token_id
@@ -176,6 +178,12 @@ class RecurrentDecoder(nn.Module):
             embedding_dim=embedding_size,
             padding_idx=self.pad_token_id,
         )
+        
+        # self.embed_tokens = nn.Sequential(
+        #     nn.Linear(vocabulary_size, embedding_size // 2),
+        #     nn.Linear(embedding_size // 2, embedding_size)
+        # )
+        
         self.dropout_in_module = nn.Dropout(p=dropout_in)
         self.dropout_out_module = nn.Dropout(p=dropout_out)
         self.rnn = Recurrent(
@@ -193,10 +201,10 @@ class RecurrentDecoder(nn.Module):
         self.fc_out = nn.Linear(hidden_size, vocabulary_size)
 
 
-    def forward(self, prev_output_tokens, state, **kwargs):
+    def forward(self, input_ids, encoder_hidden_states, **kwargs):
         """
         cfg:
-            prev_output_tokens (LongTensor): previous decoder outputs of shape
+            input_ids (LongTensor): previous decoder outputs of shape
                 `(batch, tgt_len)`, for teacher forcing
             encoder_out (Tensor, optional): output from the encoder, used for
                 encoder-side attention
@@ -208,16 +216,20 @@ class RecurrentDecoder(nn.Module):
                 - the last decoder layer's attention weights of shape
                   `(batch, tgt_len, src_len)`
         """
-        x, new_state = self.extract_features(prev_output_tokens, state)
+        x, new_state = self.extract_features(input_ids, encoder_hidden_states)
         return self.fc_out(x), new_state
 
 
-    def extract_features(self, prev_output_tokens, state):
-        hidden = state.hidden
+    def extract_features(self, input_ids, encoder_hidden_states):
+        hidden = encoder_hidden_states
         # hiddens, cells = state.hidden
         # hiddens = hiddens[:self.num_layers]
         # cells = cells[:self.num_layers]
-        x = self.embed_tokens(prev_output_tokens)
+        
+        x = self.embed_tokens(input_ids)
+        # x = self.embed_tokens(F.one_hot(input_ids, self.vocabulary_size).float())
+
+        
         emb = self.dropout_in_module(x)
         x, hidden_t = self.rnn(emb, hidden)
         x = self.dropout_out_module(x)

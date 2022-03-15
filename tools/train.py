@@ -6,8 +6,14 @@ from pathlib import Path
 
 import ignite.distributed as idist
 from catbird.apis import create_evaluator, create_trainer
-from catbird.core import (Config, build_lr_scheduler, build_optimizer,
-                          log_basic_info, log_metrics, mkdir_or_exist)
+from catbird.core import (
+    Config,
+    build_lr_scheduler,
+    build_optimizer,
+    log_basic_info,
+    log_metrics,
+    mkdir_or_exist,
+)
 from catbird.datasets import build_dataset, get_dataloader
 from catbird.models import build_generator_model
 from catbird.tokenizers import build_tokenizer
@@ -41,7 +47,7 @@ def parse_args():
 
 def training(local_rank, cfg, args):
     rank = idist.get_rank()
-    manual_seed(args.seed + rank)
+    # manual_seed(args.seed + rank)
 
     logger = setup_logger(name="Train", distributed_rank=local_rank)
     # log_basic_info(logger, cfg)
@@ -53,7 +59,16 @@ def training(local_rank, cfg, args):
         tokenizer.eos_token_id if tokenizer.eos_token_id else tokenizer.sep_token_id
     )
     cfg.decoder_start_token_id = (
-        tokenizer.eos_token_id if tokenizer.eos_token_id else tokenizer.pad_token_id
+        tokenizer.bos_token_id
+        if tokenizer.bos_token_id
+        else tokenizer.cls_token_id
+        if tokenizer.cls_token_id
+        else tokenizer.pad_token_id
+    )
+    logger.info(
+        f"Tokenizer special tokens: \npad_token: {tokenizer.decode(cfg.pad_token_id)} - {cfg.pad_token_id}\n"
+        f"eos_token: {tokenizer.decode(cfg.eos_token_id)} - {cfg.eos_token_id}\n"
+        f"decoder_start_token: {tokenizer.decode(cfg.decoder_start_token_id)} - {cfg.decoder_start_token_id}"
     )
 
     train_dataset = build_dataset(cfg, "train", tokenizer)
@@ -73,7 +88,9 @@ def training(local_rank, cfg, args):
         cfg.train.num_epochs,
         cfg.train.get("epoch_length", len(train_dataset)),
     )
-    trainer = create_trainer(cfg, model, optimizer, lr_scheduler, train_dataloader.sampler, logger)
+    trainer = create_trainer(
+        cfg, model, optimizer, lr_scheduler, train_dataloader.sampler, logger
+    )
 
     best_model_handler = partial(
         Checkpoint,
@@ -97,7 +114,7 @@ def training(local_rank, cfg, args):
         # )
         evaluator.add_event_handler(Events.COMPLETED, best_model_handler())
 
-        @trainer.on(Events.EPOCH_COMPLETED(every=1) | Events.COMPLETED)
+        @trainer.on(Events.EPOCH_COMPLETED(every=1))
         def run_validation():
             epoch = trainer.state.epoch
             state = evaluator.run(val_dataloader)

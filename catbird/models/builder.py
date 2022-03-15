@@ -46,6 +46,7 @@ def build_generator_model(cfg: Config) -> nn.Module:
                     continue
                 cfg.model[key].vocabulary_size = cfg.embedding_length
                 cfg.model[key].pad_token_id = cfg.pad_token_id
+        cfg.model.pad_token_id = cfg.pad_token_id
         cfg.model.eos_token_id = cfg.eos_token_id
         cfg.model.decoder_start_token_id = cfg.decoder_start_token_id
         model = build_generator(cfg.model)

@@ -3,6 +3,7 @@ from torch import nn
 from ..registry import ENCODERS
 from ..utils import Recurrent
 from ..state import State
+import torch.nn.functional as F
 
 
 @ENCODERS.register_module
@@ -21,6 +22,7 @@ class RecurrentEncoder(nn.Module):
         residual=False,
     ):
         super(RecurrentEncoder, self).__init__()
+        self.vocabulary_size = vocabulary_size
         self.num_layers = num_layers
         self.bidirectional = bidirectional
         self.pad_token_id = pad_token_id
@@ -32,6 +34,12 @@ class RecurrentEncoder(nn.Module):
             embedding_dim=embedding_size,
             padding_idx=self.pad_token_id,
         )
+        
+        # self.embed_tokens = nn.Sequential(
+        #     nn.Linear(vocabulary_size, embedding_size // 2),
+        #     nn.Linear(embedding_size // 2, embedding_size)
+        # )
+        
         self.dropout = nn.Dropout(p=dropout)
 
         self.rnn = Recurrent(
@@ -51,6 +59,8 @@ class RecurrentEncoder(nn.Module):
         batch_size = input_ids.size(0)
         
         x = self.embed_tokens(input_ids)
+        # x = self.embed_tokens(F.one_hot(input_ids, self.vocabulary_size).float())
+        
         x = self.dropout(x)
 
         if self.bidirectional:
@@ -61,9 +71,7 @@ class RecurrentEncoder(nn.Module):
         c0 = x.new_zeros(*state_size)
         outs, hidden = self.rnn(x, (h0, c0))
 
-        state = State(
-            outputs=outs,  # batch x seq_len x hidden
-            hidden=hidden,  # num_layers x batch x num_directions*hidden
+        return (
+            outs,  # batch x seq_len x hidden
+            hidden,  # num_layers x batch x num_directions*hidden
         )
-
-        return state
