@@ -42,13 +42,18 @@ class SentencePairDataset(Dataset):
         Returns:
             dict[str, torch.Tensor]: dictionary with src and target sentences as embedding tensors
         """
+        model_inputs = {}
 
         # input ids
         src_text = [self.task_prefix + str(self.data[idx]["src"])]
 
-        input_txt_tokenized = self.tokenizer(
+        input_ids = self.tokenizer(
             src_text, max_length=self.max_length, padding="max_length", truncation=True
-        )
+        ).input_ids
+        
+        model_inputs["input_ids"] = input_ids[0]
+        # print(model_inputs)
+        # print(self.tokenizer.convert_ids_to_tokens(model_inputs["input_ids"][0]))
 
         # tgt
         tgt_text = [str(self.data[idx]["tgt"])]
@@ -68,11 +73,17 @@ class SentencePairDataset(Dataset):
             ]
         else:
             tgt_text_tokenized = tgt_text_tokenized.input_ids
+        
+        model_inputs["labels"] = tgt_text_tokenized[0]
+        
+        # print(model_inputs)
+        
+        # assert False
 
-        input_txt_tokenized.update({"tgt": tgt_text_tokenized[0]})
+        # print(self.tokenizer.convert_ids_to_tokens(tgt_text_tokenized[0]))
 
         batch = {
-            k: torch.tensor(v).squeeze(0) for (k, v) in input_txt_tokenized.items()
+            k: torch.tensor(v).squeeze(0) for (k, v) in model_inputs.items()
         }
         
         batch["src_lengths"] = torch.sum(

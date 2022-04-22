@@ -33,9 +33,9 @@ def test_lstm_structure():
     cfg.embedding_length = 10000
     cfg.pad_token_id = 0
 
-    cfg.model.encoder.vocabulary_size = cfg.embedding_length
+    cfg.model.encoder.vocab_size = cfg.embedding_length
     cfg.model.encoder.pad_token_id = cfg.pad_token_id
-    cfg.model.decoder.vocabulary_size = cfg.embedding_length
+    cfg.model.decoder.vocab_size = cfg.embedding_length
     cfg.model.decoder.pad_token_id = cfg.pad_token_id
 
     batch_size = 32

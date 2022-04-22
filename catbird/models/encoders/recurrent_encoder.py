@@ -1,8 +1,7 @@
 from torch import nn
 
 from ..registry import ENCODERS
-from ..utils import Recurrent
-from ..state import State
+from ..utils import RecurrentLayer
 import torch.nn.functional as F
 
 
@@ -10,7 +9,7 @@ import torch.nn.functional as F
 class RecurrentEncoder(nn.Module):
     def __init__(
         self,
-        vocabulary_size,
+        vocab_size,
         pad_token_id=None,
         hidden_size=128,
         embedding_size=None,
@@ -22,7 +21,7 @@ class RecurrentEncoder(nn.Module):
         residual=False,
     ):
         super(RecurrentEncoder, self).__init__()
-        self.vocabulary_size = vocabulary_size
+        self.vocab_size = vocab_size
         self.num_layers = num_layers
         self.bidirectional = bidirectional
         self.pad_token_id = pad_token_id
@@ -30,19 +29,19 @@ class RecurrentEncoder(nn.Module):
         self.hidden_size = hidden_size
 
         self.embed_tokens = nn.Embedding(
-            num_embeddings=vocabulary_size,
+            num_embeddings=vocab_size,
             embedding_dim=embedding_size,
             padding_idx=self.pad_token_id,
         )
         
         # self.embed_tokens = nn.Sequential(
-        #     nn.Linear(vocabulary_size, embedding_size // 2),
+        #     nn.Linear(vocab_size, embedding_size // 2),
         #     nn.Linear(embedding_size // 2, embedding_size)
         # )
         
         self.dropout = nn.Dropout(p=dropout)
 
-        self.rnn = Recurrent(
+        self.rnn = RecurrentLayer(
             mode,
             embedding_size,
             hidden_size,
@@ -56,20 +55,26 @@ class RecurrentEncoder(nn.Module):
         
 
     def forward(self, input_ids, **kwargs):
+            
         batch_size = input_ids.size(0)
         
         x = self.embed_tokens(input_ids)
-        # x = self.embed_tokens(F.one_hot(input_ids, self.vocabulary_size).float())
+        # x = self.embed_tokens(F.one_hot(input_ids, self.vocab_size).float())
         
         x = self.dropout(x)
+        
+        # B x T x C -> T x B x C
+        # x = x.transpose(0, 1)
 
         if self.bidirectional:
             state_size = 2 * self.num_layers, batch_size, self.hidden_size
         else:
             state_size = self.num_layers, batch_size, self.hidden_size
+            
         h0 = x.new_zeros(*state_size)
         c0 = x.new_zeros(*state_size)
         outs, hidden = self.rnn(x, (h0, c0))
+        # outs, hidden = self.rnn(x)
 
         return (
             outs,  # batch x seq_len x hidden

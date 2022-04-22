@@ -123,7 +123,7 @@ class TestEDD(unittest.TestCase):
                 hidden_size=512,
                 dropout=0.5,
                 num_layers=1,
-                vocabulary_size=self.cfg.embedding_length,
+                vocab_size=self.cfg.embedding_length,
                 pad_token_id=self.cfg.pad_token_id
             ),
             decoder=dict(
@@ -131,7 +131,7 @@ class TestEDD(unittest.TestCase):
                 mode="LSTM",
                 hidden_dim=512,
                 dropout_out=0.5,
-                vocabulary_size=self.cfg.embedding_length,
+                vocab_size=self.cfg.embedding_length,
                 pad_token_id=self.cfg.pad_token_id),
             discriminator=dict(
                 type='RecurrentDiscriminator',
@@ -141,7 +141,7 @@ class TestEDD(unittest.TestCase):
                 dropout=0.5,
                 num_layers=1,
                 out_size=512,
-                vocabulary_size=self.cfg.embedding_length,
+                vocab_size=self.cfg.embedding_length,
                 pad_token_id=self.cfg.pad_token_id
             ),
         )

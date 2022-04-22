@@ -5,9 +5,9 @@ channels:
   - conda-forge
 dependencies:
   - python=3.8
-  - pytorch::pytorch=1.10.2
-  - pyg::pyg=2.0.3
-  - pytorch::pytorch-ignite=0.4.8
+  - pytorch=1.10.2
+  - pyg=2.0.3
+  - pytorch-ignite=0.4.8
   - datasets=1.16.1
   - sentencepiece=0.1.96
   - addict=2.4.0

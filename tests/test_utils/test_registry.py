@@ -22,9 +22,9 @@ def test_registry():
     assert "model" in cfg
     assert "encoder" in cfg.model and "decoder" in cfg.model
 
-    cfg.model.encoder.vocabulary_size = 10000
+    cfg.model.encoder.vocab_size = 10000
     cfg.model.encoder.pad_token_id = 0
-    cfg.model.decoder.vocabulary_size = 10000
+    cfg.model.decoder.vocab_size = 10000
     cfg.model.decoder.pad_token_id = 0
 
     _ = build_from_cfg(cfg.model.encoder, ENCODERS)

@@ -1,6 +1,7 @@
 """Factory to build tokenizers."""
 from catbird.core import Config  # type: ignore
 from transformers import AutoTokenizer
+from urllib.error import HTTPError
 
 
 def build_tokenizer(cfg: Config) -> AutoTokenizer:
@@ -19,10 +20,12 @@ def build_tokenizer(cfg: Config) -> AutoTokenizer:
         tokenizer = AutoTokenizer.from_pretrained(cfg.model.name.lower())
         if cfg.get("tokenizer", None):
             tokenizer.add_special_tokens(cfg.tokenizer.special_tokens)
+        return tokenizer
+    except HTTPError as err:
+        raise HTTPError(f"Server error from HuggingFace.\nError message:\n{err}")
     except:
         print(
             "The model name does not match an existing tokenizer. Returning bert-base-uncased pretrained tokenizer."
         )
         tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
-    finally:
         return tokenizer

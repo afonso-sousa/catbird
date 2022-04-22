@@ -2,13 +2,13 @@ from torch import nn
 import torch
 
 
-def Recurrent(
+def RecurrentLayer(
     mode,
     input_size,
     hidden_size,
     num_layers=1,
     bias=True,
-    batch_first=False,
+    batch_first=True,
     dropout=0,
     bidirectional=False,
     residual=False,

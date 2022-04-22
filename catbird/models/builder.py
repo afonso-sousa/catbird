@@ -35,16 +35,16 @@ def build_generator_model(cfg: Config) -> nn.Module:
         nn.Module: selected model based on configurations
     """
     logger = setup_logger(name="Model", distributed_rank=idist.get_rank())
-    logger.info(f"Loading {cfg.model.name} model")
+    logger.info(f"Loading {cfg.model.type} model")
 
     if isinstance(cfg.model, dict) and "type" in cfg.model:
         if cfg.model.type == "HuggingFaceWrapper":
-            cfg.model.vocabulary_size = cfg.embedding_length
+            cfg.model.vocab_size = cfg.embedding_length
         else:
             for key in cfg.model:
                 if key == "type":
                     continue
-                cfg.model[key].vocabulary_size = cfg.embedding_length
+                cfg.model[key].vocab_size = cfg.embedding_length
                 cfg.model[key].pad_token_id = cfg.pad_token_id
         cfg.model.pad_token_id = cfg.pad_token_id
         cfg.model.eos_token_id = cfg.eos_token_id

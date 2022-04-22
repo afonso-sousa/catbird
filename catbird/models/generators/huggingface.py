@@ -9,11 +9,11 @@ from ..utils import freeze_params
 
 @GENERATORS.register_module
 class HuggingFaceWrapper(nn.Module):
-    def __init__(self, name, vocabulary_size, **kwargs):
+    def __init__(self, name, vocab_size, **kwargs):
         super(HuggingFaceWrapper, self).__init__()
         if name == "t5-small":
             model = T5ForConditionalGeneration.from_pretrained(name)
-            model.resize_token_embeddings(vocabulary_size)
+            model.resize_token_embeddings(vocab_size)
         else:
             raise NotImplementedError(
                 "The name of the model you specified is not supported."

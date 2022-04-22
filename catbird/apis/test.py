@@ -39,14 +39,14 @@ def default_test_step(
     def routine(engine, batch):
         model.eval()
 
-        if batch["tgt"].device != device:
+        if batch["labels"].device != device:
             batch = {
                 k: v.to(device, non_blocking=True)
                 for (k, v) in batch.items()
             }
 
         src_ids = batch["input_ids"]
-        tgt = batch["tgt"]
+        labels = batch["labels"]
 
         if isinstance(model, Seq2Seq):
             y_pred = model.generate(src_ids, num_beams = cfg.test.get("num_beams", 1))
@@ -54,10 +54,10 @@ def default_test_step(
             y_pred = model.generate(src_ids)
 
         if cfg.data.get("mask_pad_token", False):
-            tgt = torch.where(tgt != -100, tgt, tokenizer.pad_token_id)
+            labels = torch.where(labels != -100, labels, tokenizer.pad_token_id)
 
         preds = ids_to_clean_text(y_pred)
-        tgt = ids_to_clean_text(tgt)
+        tgt = ids_to_clean_text(labels)
         
         preds = [_preds.split() for _preds in preds]
         tgt = [[_tgt.split()] for _tgt in tgt]

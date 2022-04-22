@@ -1,12 +1,15 @@
 """Main methods for model training and evaluation."""
 
+import random
 from importlib import import_module
 from logging import Logger
 from typing import Optional, Union
 
 import ignite.distributed as idist
 import torch
+import torch.nn.functional as F
 from catbird.core import Config  # type: ignore
+from catbird.models.generators.base import Seq2Seq
 from ignite.contrib.engines import common
 from ignite.engine import Engine
 from torch import nn, optim
@@ -14,8 +17,6 @@ from torch.cuda.amp import GradScaler, autocast
 from torch.nn import CrossEntropyLoss
 from torch.utils.data.distributed import DistributedSampler
 from transformers import AutoTokenizer
-import torch.nn.functional as F
-from catbird.models.generators.base import Seq2Seq
 
 
 def default_train_step(
@@ -36,30 +37,43 @@ def default_train_step(
     """
 
     def routine(engine, batch):
-        accumulation_steps = cfg.train.get("accumulation_steps", 1)
-        with_amp = cfg.train.get("with_amp", False)
+        model.train()
+
+        # print(batch.keys())
+        # print(batch)
+        # assert False
+
+        # accumulation_steps = cfg.train.get("accumulation_steps", 1)
+        # with_amp = cfg.train.get("with_amp", False)
 
         if cfg.data.get("mask_pad_token", False):
             ignore_index = -100
         else:
             ignore_index = cfg.pad_token_id
 
-        model.train()
-
-        if batch["tgt"].device != device:
+        if batch["labels"].device != device:
             batch = {k: v.to(device) for (k, v) in batch.items()}
 
-        with autocast(enabled=with_amp):
-            loss = model(**batch, return_loss=True, ignore_index=ignore_index)
+        input_ids = batch["input_ids"]
+        labels = batch["labels"]
 
-            loss /= accumulation_steps
+        # with autocast(enabled=with_amp):
+        # print(batch["input_ids"].shape)
+        # print(batch["labels"].shape)
+        # loss = model(**batch, return_loss=True, ignore_index=ignore_index)
+        loss = model(input_ids=input_ids, labels=labels, ignore_index=ignore_index,)[0]
 
-        scaler.scale(loss).backward()
+        optimizer.zero_grad()
+        loss.backward(retain_graph=False)
+        optimizer.step()
+        # loss /= accumulation_steps
 
-        if engine.state.iteration % accumulation_steps == 0:
-            scaler.step(optimizer)
-            scaler.update()
-            optimizer.zero_grad()
+        # scaler.scale(loss).backward()
+
+        # if engine.state.iteration % accumulation_steps == 0:
+        #     scaler.step(optimizer)
+        #     scaler.update()
+        #     optimizer.zero_grad()
 
         return {"batch loss": loss.item()}
 
@@ -88,47 +102,89 @@ def default_evaluate_step(
         model.eval()
 
         device = idist.device()
-        if batch["tgt"].device != device:
+        if batch["labels"].device != device:
             batch = {k: v.to(device, non_blocking=True) for (k, v) in batch.items()}
 
-        src_ids = batch["input_ids"]
-        tgt = batch["tgt"]
+        input_ids = batch["input_ids"]
+        labels = batch["labels"]
 
-        tgt = torch.where(tgt != -100, tgt, cfg.pad_token_id)
+        labels = torch.where(labels != -100, labels, cfg.pad_token_id)
 
-        if isinstance(model, Seq2Seq):
-            y_pred = model.generate(src_ids, num_beams=1)
-        else:
-            y_pred = model.generate(src_ids)
+        idx = random.randint(0, len(batch) - 1)
+        print("IDX " + str(idx))
 
+        # if isinstance(model, Seq2Seq):
+            # for i in range(len(batch)):
+            #     y_pred = torch.stack(
+            #         [
+            #             model.generate(
+            #                 input_ids[i].unsqueeze(0),
+            #                 [list(cfg.bos_token_id)],
+            #                 beam_size=3,
+            #                 eos_id=cfg.eos_token_id,
+            #             )
+            #             for i in range(len(batch))
+            #         ]
+            #     )
+            # y_pred = model.generate(src_ids, [[cfg.bos_token_id]] * len(batch), beam_size=1, eos_id=cfg.eos_token_id)
+            # y_preds = model.generate(
+            #     input_ids[0].unsqueeze(0),
+            #     [[cfg.decoder_start_token_id]],
+            #     beam_size=5,
+            #     max_sequence_length=50,
+            #     eos_id=cfg.eos_token_id,
+            # )[0]
+            # y_pred = [s.output for s in y_preds]
+            
+            # generated = model.generate(
+            #     input_ids, max_length=50, num_beams=3, early_stopping=True
+            # )
+            # generated = model.generate(input_ids)
+
+            # print(src_ids[0].unsqueeze(0).shape)
+            # print(torch.tensor(y_pred[0]).unsqueeze(0).shape)
+            # src_ids_text = ids_to_clean_text(input_ids[idx].unsqueeze(0))
+            # preds = ids_to_clean_text(generated[idx].unsqueeze(0))
+            # tgt_text = ids_to_clean_text(labels[idx].unsqueeze(0))
+            # print(tokenizer.decode(output_ids[0], skip_special_tokens=True))
+
+        # else:
+        y_pred = model.generate(input_ids)
+
+        src_ids_text = ids_to_clean_text(input_ids)
         preds = ids_to_clean_text(y_pred)
-        tgt_text = ids_to_clean_text(tgt)
+        tgt_text = ids_to_clean_text(labels)
 
+        src_ids_text = [_src.split() for _src in src_ids_text]
         preds = [_preds.split() for _preds in preds]
-        tgt_text = [[_tgt.split()] for _tgt in tgt_text]
+        tgt_text = [_tgt.split() for _tgt in tgt_text]
 
         logger.info(
-            f'\n Preds: {" ".join(preds[0])} \n\n Target: {" ".join(tgt_text[0][0])} \n'
+            "\n"
+            f"Source: {' '.join(src_ids_text[0])}\n"
+            f"Preds: {' '.join(preds[0])}\n"
+            f"Target: {' '.join(tgt_text[0])}\n"
         )
 
-        logits = model(**batch, return_loss=False)
+        loss = model(input_ids=input_ids, labels=labels,)[0]
+        # logits = model(**batch, return_loss=False)
 
-        output = logits.reshape(-1, logits.size(-1))
-        target = tgt.reshape(-1)
+        # output = logits.reshape(-1, logits.size(-1))
+        # target = labels[:, 1:].contiguous().reshape(-1)
 
-        loss_fct = CrossEntropyLoss(ignore_index=cfg.pad_token_id)
-        loss = loss_fct(output, target)
-        nll = F.nll_loss(output, target, ignore_index=cfg.pad_token_id, reduction="sum")
-        _, argmax = output.max(-1)
-        invalid_targets = target.eq(cfg.pad_token_id)
-        accuracy = argmax.eq(target).masked_fill_(
-            invalid_targets, 0
-        ).long().sum() / target.size(0)
+        # loss_fct = CrossEntropyLoss(ignore_index=cfg.pad_token_id)
+        # loss = loss_fct(output, target)
+        # nll = F.nll_loss(output, target, ignore_index=cfg.pad_token_id, reduction="sum")
+        # _, argmax = output.max(-1)
+        # invalid_targets = target.eq(cfg.pad_token_id)
+        # accuracy = argmax.eq(target).masked_fill_(
+        #     invalid_targets, 0
+        # ).long().sum() / target.size(0)
 
         return {
             "loss": loss.item(),
-            "nll": nll.item(),
-            "accuracy": accuracy.view(1, 1).item(),
+            # "nll": nll.item(),
+            # "accuracy": accuracy.view(1, 1).item(),
         }
 
     return routine
