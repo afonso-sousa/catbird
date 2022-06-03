@@ -3,9 +3,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from .attention import MultiHeadAttention
-from .weight_norm import weight_norm as wn
 from .linear import Linear
-from .recurrent import RecurrentLayer
+from .recurrent_modules import RecurrentLayer
 
 
 def positional_embedding(position_or_length, channels, min_timescale=1.0, max_timescale=1.0e4, offset=0, device=None):
@@ -54,7 +53,7 @@ class AverageNetwork(nn.Module):
 
     def __init__(self, input_size, inner_linear, inner_groups=1, layer_norm=True, weight_norm=False, dropout=0, batch_first=True):
         super(AverageNetwork, self).__init__()
-        wn_func = wn if weight_norm else lambda x: x
+        wn_func = lambda x: x
         self.input_size = input_size
         self.time_step = 0
         self.batch_dim, self.time_dim = (0, 1) if batch_first else (1, 0)
@@ -103,7 +102,7 @@ class EncoderBlock(nn.Module):
                  batch_first=True, layer_norm=True, weight_norm=False, dropout=0):
 
         super(EncoderBlock, self).__init__()
-        wn_func = wn if weight_norm else lambda x: x
+        wn_func = lambda x: x
         if layer_norm:
             self.lnorm1 = nn.LayerNorm(hidden_size)
             self.lnorm2 = nn.LayerNorm(hidden_size)
@@ -157,7 +156,7 @@ class DecoderBlock(nn.Module):
                  layer_norm=True, weight_norm=False, dropout=0, stateful=None, state_dim=None, causal=True):
 
         super(DecoderBlock, self).__init__()
-        wn_func = wn if weight_norm else lambda x: x
+        wn_func = lambda x: x
         if layer_norm:
             self.lnorm1 = nn.LayerNorm(hidden_size)
             self.lnorm2 = nn.LayerNorm(hidden_size)

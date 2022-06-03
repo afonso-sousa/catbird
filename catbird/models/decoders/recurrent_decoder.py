@@ -9,7 +9,7 @@ import torch.nn.functional as F
 
 
 @DECODERS.register_module
-class RecurrentDecoder3(BaseDecoder):
+class RecurrentDecoder(BaseDecoder):
     def __init__(
         self,
         vocab_size,
@@ -23,7 +23,8 @@ class RecurrentDecoder3(BaseDecoder):
         mode="LSTM",
         residuals=False,
     ):
-        super(RecurrentDecoder3, self).__init__()
+        super(RecurrentDecoder, self).__init__()
+        self.vocab_size = vocab_size
         self.hidden_size = hidden_size
         self.num_layers = num_layers
         self.mode = mode
@@ -31,7 +32,6 @@ class RecurrentDecoder3(BaseDecoder):
         self.embed_tokens = nn.Embedding(
             num_embeddings=vocab_size,
             embedding_dim=embedding_size,
-            padding_idx=pad_token_id,
         )
         self.dropout_in_module = nn.Dropout(p=dropout_in)
         self.dropout_out_module = nn.Dropout(p=dropout_out)
@@ -82,8 +82,6 @@ class RecurrentDecoder3(BaseDecoder):
 
         batch_size, seqlen = input_ids.size()
 
-        # Embed the target sequence, which has been shifted right by one
-        # position and now starts with the end-of-sentence symbol.
         x = self.embed_tokens(input_ids)
         x = self.dropout_in_module(x)
 
@@ -149,11 +147,11 @@ class RecurrentDecoder3(BaseDecoder):
         else:
             hidden_t = torch.stack(prev_hiddens)
 
-        return x, State(hidden=hidden_t)
+        return x, hidden_t
 
 
 @DECODERS.register_module
-class RecurrentDecoder(nn.Module):
+class RecurrentDecoder2(nn.Module):
     def __init__(
         self,
         vocab_size,
@@ -168,7 +166,7 @@ class RecurrentDecoder(nn.Module):
         mode="LSTM",
         residual=False,
     ):
-        super(RecurrentDecoder, self).__init__()
+        super(RecurrentDecoder2, self).__init__()
         self.vocab_size = vocab_size
         embedding_size = embedding_size or hidden_size
         self.num_layers = num_layers

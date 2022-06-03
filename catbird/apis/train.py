@@ -58,10 +58,10 @@ def default_train_step(
         labels = batch["labels"]
 
         # with autocast(enabled=with_amp):
-        # print(batch["input_ids"].shape)
-        # print(batch["labels"].shape)
-        # loss = model(**batch, return_loss=True, ignore_index=ignore_index)
-        loss = model(input_ids=input_ids, labels=labels, ignore_index=ignore_index,)[0]
+        if isinstance(model, Seq2Seq):
+            loss = model(input_ids=input_ids, labels=labels)[0]
+        else:
+            loss = model(input_ids=input_ids, attention_mask=batch["attention_mask"], tgt=labels)
 
         optimizer.zero_grad()
         loss.backward(retain_graph=False)
@@ -166,7 +166,11 @@ def default_evaluate_step(
             f"Target: {' '.join(tgt_text[0])}\n"
         )
 
-        loss = model(input_ids=input_ids, labels=labels,)[0]
+        # loss = model(input_ids=input_ids, labels=labels,)[0]
+        if isinstance(model, Seq2Seq):
+            loss = model(input_ids=input_ids, labels=labels)[0]
+        else:
+            loss = model(input_ids=input_ids, attention_mask=batch["attention_mask"], tgt=labels)
         # logits = model(**batch, return_loss=False)
 
         # output = logits.reshape(-1, logits.size(-1))

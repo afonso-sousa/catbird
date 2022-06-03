@@ -31,7 +31,6 @@ class RecurrentEncoder(nn.Module):
         self.embed_tokens = nn.Embedding(
             num_embeddings=vocab_size,
             embedding_dim=embedding_size,
-            padding_idx=self.pad_token_id,
         )
         
         # self.embed_tokens = nn.Sequential(

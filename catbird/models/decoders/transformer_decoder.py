@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import math
 from random import randrange, shuffle
-from .modules.transformer_blocks import DecoderBlock, DecoderBlockPreNorm, positional_embedding, PositionalEmbedding
+from ..utils.transformer_blocks import DecoderBlock, DecoderBlockPreNorm, positional_embedding, PositionalEmbedding
 
 
 def index_select_2d(x, order):
@@ -75,13 +75,14 @@ def repeat(x, N, dim=0):
     return x
 
 
-class TransformerAttentionDecoder(nn.Module):
+class TransformerDecoder(nn.Module):
 
     def __init__(self, vocab_size, pad_token_id=None, hidden_size=512, embedding_size=None, num_layers=6, num_heads=8,
                  batch_first=True, dropout=0, inner_linear=2048, inner_groups=1, prenormalized=False, stateful=None, state_dim=None,
                  tie_embedding=True, layer_norm=True, weight_norm=False, embedder=None, classifier=True, permuted=False, learned_condition=False, max_length=512, **kwargs):
 
-        super(TransformerAttentionDecoder, self).__init__()
+        super(TransformerDecoder, self).__init__()
+        self.vocab_size = vocab_size
         self.pad_token_id = pad_token_id
         embedding_size = embedding_size or hidden_size
         if embedding_size != hidden_size:

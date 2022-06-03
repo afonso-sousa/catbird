@@ -47,11 +47,11 @@ class SentencePairDataset(Dataset):
         # input ids
         src_text = [self.task_prefix + str(self.data[idx]["src"])]
 
-        input_ids = self.tokenizer(
+        model_inputs = self.tokenizer(
             src_text, max_length=self.max_length, padding="max_length", truncation=True
-        ).input_ids
+        )
         
-        model_inputs["input_ids"] = input_ids[0]
+        # model_inputs["input_ids"] = input_ids[0]
         # print(model_inputs)
         # print(self.tokenizer.convert_ids_to_tokens(model_inputs["input_ids"][0]))
 
@@ -73,12 +73,8 @@ class SentencePairDataset(Dataset):
             ]
         else:
             tgt_text_tokenized = tgt_text_tokenized.input_ids
-        
-        model_inputs["labels"] = tgt_text_tokenized[0]
-        
-        # print(model_inputs)
-        
-        # assert False
+
+        model_inputs["labels"] = tgt_text_tokenized
 
         # print(self.tokenizer.convert_ids_to_tokens(tgt_text_tokenized[0]))
 

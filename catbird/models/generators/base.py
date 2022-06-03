@@ -69,11 +69,10 @@ class Seq2Seq(nn.Module, GenerationMixin):
         """
              
         if (labels is not None) and (decoder_input_ids is None):
-            # decoder_input_ids = shift_tokens_right(labels, self.pad_token_id, self.decoder_start_token_id)
+            decoder_input_ids = shift_tokens_right(labels, self.pad_token_id, self.decoder_start_token_id)
             
-            decoder_input_ids = labels[:, :-1].contiguous()
-            # replace possible -100 values in labels by `pad_token_id`
-            decoder_input_ids.masked_fill_(decoder_input_ids == -100, self.pad_token_id)
+            # decoder_input_ids = labels[:, :-1].contiguous()
+            # decoder_input_ids.masked_fill_(decoder_input_ids == -100, self.pad_token_id) # replace possible -100 values in labels by `pad_token_id`
 
         if (labels is None) and (decoder_input_ids is None):
             decoder_input_ids = input_ids
@@ -91,7 +90,7 @@ class Seq2Seq(nn.Module, GenerationMixin):
         loss = None
         if labels is not None:
             logits = decoder_outputs[0]
-            labels = labels[:, 1:].contiguous()
+            # labels = labels[:, 1:].contiguous()
             # loss = self.loss(logits, labels, ignore_index=kwargs.get("ignore_index", -100))
             loss_fct = CrossEntropyLoss()
             loss = loss_fct(logits.view(-1, logits.size(-1)), labels.view(-1))

@@ -20,10 +20,8 @@ data = dict(
 # train settings
 train = dict(
     num_epochs=20,
-    batch_size=32,
-    learning_rate=1e-4,
-    weight_decay=1e-2,
-    epoch_length=500,
+    batch_size=64,
+    epoch_length=100,
     accumulation_steps=1,
     with_amp=False,
 )
@@ -33,3 +31,6 @@ model = dict(type="HuggingFaceWrapper", name="t5-small", freeze_encoder=False)
 
 # optimizer settings
 optimizer = dict(type="SGD", lr=0.02, momentum=0.9, weight_decay=0.0001)
+
+# scheduler settings
+scheduler = dict(num_warmup_epochs=4, peak_lr=0.4)
