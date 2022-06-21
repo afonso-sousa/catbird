@@ -11,7 +11,7 @@ from torch import nn
 
 from .registry import (DECODERS, DISCRIMINATORS, ENCODERS, GENERATORS,
                        GRAPH_ENCODERS)
-from .utils import freeze_params
+from .modules import freeze_params
 
 
 def build(cfg, registry, default_args=None):

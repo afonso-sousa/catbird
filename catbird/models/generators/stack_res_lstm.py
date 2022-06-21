@@ -20,46 +20,46 @@ class StackedResidualLSTM(EncoderDecoderBase):
             pad_token_id, eos_token_id, decoder_start_token_id, encoder, decoder
         )
 
-    def forward(self, input_ids, labels, teacher_forcing_ratio=0.5, **kwargs):
+    def forward(
+        self,
+        input_ids,
+        labels=None,
+        decoder_input_ids=None,
+        teacher_forcing_ratio=0.5,
+        **kwargs
+    ):
         input_ids = input_ids.t()
         labels = labels.t()
 
-        decoder_input_ids = labels[:-1, :]
-
-        decoder_input_ids.masked_fill_(decoder_input_ids == -100, self.pad_token_id)
+        decoder_input_ids = self._get_decoder_input_ids(labels)
 
         device = next(self.decoder.parameters()).device
 
-        batch_size = input_ids.size(1)
-        max_len = decoder_input_ids.size(0)
+        batch_size = input_ids.shape[1]
+        max_len = decoder_input_ids.shape[0]
         vocab_size = self.decoder.vocab_size
         outputs = torch.zeros(max_len, batch_size, vocab_size).to(device)
 
         encoder_output, hidden = self.encoder(
             input_ids
-        )  # [27, 32]=> =>[27, 32, 512],[4, 32, 512]
-        hidden = hidden[: self.decoder.num_layers]  # [4, 32, 512][1, 32, 512]
-        output = decoder_input_ids.data[0, :]  # sos
+        )
+        hidden = hidden[: self.decoder.num_layers]
+        output = decoder_input_ids[0, :]
 
         for t in range(1, max_len):
-            # print(output.shape) # [128]
-            # print(hidden.shape) # [1, 128, 512]
-            # print(encoder_output.shape) # [50, 128, 512]
-            output, hidden, attn_weights = self.decoder(
+            output, hidden, _ = self.decoder(
                 output, hidden, encoder_output
-            )  # output:[32, 10004] [1, 32, 512] [32, 1, 27]
+            )
             outputs[t] = output
             is_teacher = random.random() < teacher_forcing_ratio
-            top1 = output.data.max(1)[
-                1
-            ]  # 按照 dim=1 求解最大值和最大值索引,x[1] 得到的是最大值的索引=>top1.shape=32
+            top1 = output.data.max(1)[1]
             output = decoder_input_ids.data[t] if is_teacher else top1
 
-        loss = F.nll_loss(
-            outputs.view(-1, vocab_size), labels[1:].contiguous().view(-1),
-        )
+        # loss = F.nll_loss(
+        #     outputs.view(-1, vocab_size), labels[1:].contiguous().view(-1),
+        # )
 
-        return loss, outputs
+        return self.loss(output, labels), outputs
 
     # def decode(self, decoder_input_ids, method='beam-search'):
     #     # decoder_input_ids.masked_fill_(decoder_input_ids == -100, self.pad_token_id)

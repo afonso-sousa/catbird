@@ -2,7 +2,7 @@ import torch.nn.functional as F
 from torch import nn
 
 from ..registry import ENCODERS
-from ..utils import RecurrentLayer
+from ..modules import RecurrentLayer
 
 # @ENCODERS.register_module
 # class RecurrentEncoder(nn.Module):

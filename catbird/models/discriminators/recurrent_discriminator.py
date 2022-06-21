@@ -3,7 +3,7 @@ import torch.nn.functional as F
 from torch import nn
 
 from ..registry import DISCRIMINATORS
-from ..utils import RecurrentLayer
+from ..modules import RecurrentLayer
 
 
 @DISCRIMINATORS.register_module

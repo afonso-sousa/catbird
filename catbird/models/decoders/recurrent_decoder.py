@@ -330,5 +330,5 @@ class RecurrentDecoder(nn.Module):
         output = self.out(
             torch.cat([output, context], 1)
         )  # [32, 512] cat [32, 512] => [32, 512*2]
-        output = F.log_softmax(output, dim=1)
+        # output = F.log_softmax(output, dim=1)
         return output, hidden, attn_weights  # [32, 10004] [1, 32, 512] [32, 1, 27]

@@ -28,10 +28,11 @@ class VanillaTransformer(EncoderDecoderBase):
         memory = self.encoder(input_ids)
         output = self.decoder(decoder_input_ids, memory)
 
-        loss_fn = nn.CrossEntropyLoss()
-        loss = loss_fn(output.reshape(-1, output.shape[-1]), labels[1:, :].reshape(-1))
+        # loss_fn = nn.CrossEntropyLoss()
+        # loss = loss_fn(output.reshape(-1, output.shape[-1]), labels[1:, :].reshape(-1))
 
-        return loss, output
+        return self.loss(output, labels), output
+
 
     def generate(self, input_ids, **kwargs):
         input_ids = input_ids.t()

@@ -56,6 +56,7 @@ class TestDatasets(unittest.TestCase):
 
     def test_structure(self):  
         hidden_dim = 256
+        num_layers = 2
         
         input_ids = self.input_ids.t()
         decoder_input_ids = input_ids[:-1, :]
@@ -63,11 +64,15 @@ class TestDatasets(unittest.TestCase):
         assert input_ids.shape == (self.max_length, self.batch_size)
         assert decoder_input_ids.shape == (self.max_length - 1, self.batch_size)
 
-        memory = self.model.encoder(input_ids)
-        assert memory.shape == (self.max_length, self.batch_size, hidden_dim)
+        out, hidden = self.model.encoder(input_ids)
+        assert out.shape == (self.max_length, self.batch_size, hidden_dim)
+        assert hidden.shape == (num_layers * 2, self.batch_size, hidden_dim)
 
-        decoder_out = self.model.decoder(decoder_input_ids, memory)
-        assert decoder_out.shape == (self.max_length - 1, self.batch_size, self.cfg.embedding_length)
+        hidden = hidden[: self.model.decoder.num_layers]
+        output = decoder_input_ids[0, :]
+        output, hidden, attn_weights = self.model.decoder(output, hidden, out)
+        assert output.shape == (self.batch_size, self.cfg.embedding_length)
+        assert attn_weights.shape == (self.batch_size, 1, self.max_length)
 
         _, logits = self.model(input_ids.t(), input_ids.t())
 
@@ -82,4 +87,4 @@ class TestDatasets(unittest.TestCase):
                 
         y_pred = self.model.generate(self.input_ids)
         
-        assert y_pred.shape == (self.max_length, 1)
+        assert y_pred.shape == (self.max_length, self.batch_size)

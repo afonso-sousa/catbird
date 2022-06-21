@@ -8,18 +8,18 @@ from ..builder import build_decoder, build_encoder
 from ..postprocessing import GenerationMixin
 
 
-def shift_tokens_right(input_ids: torch.Tensor, pad_token_id: int, decoder_start_token_id: int):
-    """
-    Shift input ids one token to the right.
-    """
-    shifted_input_ids = input_ids.new_zeros(input_ids.shape)
-    shifted_input_ids[:, 1:] = input_ids[:, :-1].clone()
-    shifted_input_ids[:, 0] = decoder_start_token_id
+# def shift_tokens_right(input_ids: torch.Tensor, pad_token_id: int, decoder_start_token_id: int):
+#     """
+#     Shift input ids one token to the right.
+#     """
+#     shifted_input_ids = input_ids.new_zeros(input_ids.shape)
+#     shifted_input_ids[:, 1:] = input_ids[:, :-1].clone()
+#     shifted_input_ids[:, 0] = decoder_start_token_id
 
-    # replace possible -100 values in labels by `pad_token_id`
-    shifted_input_ids.masked_fill_(shifted_input_ids == -100, pad_token_id)
+#     # replace possible -100 values in labels by `pad_token_id`
+#     shifted_input_ids.masked_fill_(shifted_input_ids == -100, pad_token_id)
 
-    return shifted_input_ids
+#     return shifted_input_ids
 
 
 class EncoderDecoderBase(nn.Module, GenerationMixin):
@@ -32,6 +32,13 @@ class EncoderDecoderBase(nn.Module, GenerationMixin):
         self.decoder_start_token_id = decoder_start_token_id
         self.encoder = build_encoder(encoder)
         self.decoder = build_decoder(decoder)
+
+
+    def _get_decoder_input_ids(self, input_ids: torch.Tensor):
+        decoder_input_ids = input_ids[:-1, :]
+        # replace possible -100 values in labels by `pad_token_id`
+        decoder_input_ids.masked_fill_(decoder_input_ids == -100, self.pad_token_id)
+        return decoder_input_ids
 
     def forward(
         self, input_ids, labels=None, decoder_input_ids=None, **kwargs
@@ -56,8 +63,9 @@ class EncoderDecoderBase(nn.Module, GenerationMixin):
         """
              
         if (labels is not None) and (decoder_input_ids is None):
-            decoder_input_ids = labels[:, :-1].contiguous()
-            decoder_input_ids.masked_fill_(decoder_input_ids == -100, self.pad_token_id) # replace possible -100 values in labels by `pad_token_id`
+            # decoder_input_ids = labels[:, :-1].contiguous()
+            # decoder_input_ids.masked_fill_(decoder_input_ids == -100, self.pad_token_id)
+            decoder_input_ids = self._get_decoder_input_ids(labels)
 
         if (labels is None) and (decoder_input_ids is None):
             decoder_input_ids = input_ids
@@ -76,10 +84,12 @@ class EncoderDecoderBase(nn.Module, GenerationMixin):
         if labels is not None:
             logits = decoder_outputs[0]
 
-            targets = labels[:, :-1].contiguous()
+            # targets = labels[:, :-1].contiguous()
             
-            loss_fct = CrossEntropyLoss()
-            loss = loss_fct(logits.view(-1, logits.size(-1)), targets.view(-1))
+            # loss_fct = CrossEntropyLoss()
+            # loss = loss_fct(logits.view(-1, logits.size(-1)), targets.view(-1))
+            
+            loss = self.loss(logits, labels)
 
         if loss is not None:
             return (loss,) + decoder_outputs + encoder_outputs
@@ -95,7 +105,14 @@ class EncoderDecoderBase(nn.Module, GenerationMixin):
         return self.decoder
 
 
-    def loss(self, logits, labels, ignore_index=-100):
-        loss_fct = CrossEntropyLoss(ignore_index=ignore_index)
-        loss = loss_fct(logits.reshape(-1, logits.size(-1)), labels.view(-1))
+    # def loss(self, logits, labels, ignore_index=-100):
+    #     loss_fct = CrossEntropyLoss(ignore_index=ignore_index)
+    #     loss = loss_fct(logits.reshape(-1, logits.size(-1)), labels.view(-1))
+    #     return loss
+
+
+    def loss(self, logits, labels):
+        targets = labels[1:, :]
+        loss_fct = nn.CrossEntropyLoss()
+        loss = loss_fct(logits.reshape(-1, logits.shape[-1]), targets.reshape(-1))
         return loss

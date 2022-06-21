@@ -4,7 +4,7 @@ from torch import nn
 from transformers import T5ForConditionalGeneration
 
 from ..registry import GENERATORS
-from ..utils import freeze_params
+from ..modules import freeze_params
 
 
 @GENERATORS.register_module

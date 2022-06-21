@@ -8,7 +8,6 @@ from .generators import *
 from .losses import *
 from .registry import (DECODERS, DISCRIMINATORS, ENCODERS, GENERATORS,
                        GRAPH_ENCODERS)
-from .state import State
 
 __all__ = [
     "build_generator_model",
@@ -19,5 +18,4 @@ __all__ = [
     "ENCODERS",
     "DECODERS",
     "DISCRIMINATORS",
-    "State",
 ]
