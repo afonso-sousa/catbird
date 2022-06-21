@@ -9,7 +9,7 @@ import ignite.distributed as idist
 import torch
 import torch.nn.functional as F
 from catbird.core import Config  # type: ignore
-from catbird.models.generators.base import Seq2Seq
+from catbird.models.generators.base import EncoderDecoderBase
 from ignite.contrib.engines import common
 from ignite.engine import Engine
 from torch import nn, optim
@@ -39,17 +39,8 @@ def default_train_step(
     def routine(engine, batch):
         model.train()
 
-        # print(batch.keys())
-        # print(batch)
-        # assert False
-
-        # accumulation_steps = cfg.train.get("accumulation_steps", 1)
-        # with_amp = cfg.train.get("with_amp", False)
-
-        if cfg.data.get("mask_pad_token", False):
-            ignore_index = -100
-        else:
-            ignore_index = cfg.pad_token_id
+        accumulation_steps = cfg.train.get("accumulation_steps", 1)
+        with_amp = cfg.train.get("with_amp", False)
 
         if batch["labels"].device != device:
             batch = {k: v.to(device) for (k, v) in batch.items()}
@@ -57,23 +48,23 @@ def default_train_step(
         input_ids = batch["input_ids"]
         labels = batch["labels"]
 
-        # with autocast(enabled=with_amp):
-        if isinstance(model, Seq2Seq):
-            loss = model(input_ids=input_ids, labels=labels)[0]
-        else:
-            loss = model(input_ids=input_ids, attention_mask=batch["attention_mask"], tgt=labels)
+        with autocast(enabled=with_amp):
+            if isinstance(model, EncoderDecoderBase):
+                loss = model(input_ids=input_ids, labels=labels)[0]
+            else:
+                loss = model(input_ids=input_ids, attention_mask=batch["attention_mask"], tgt=labels)
+                
+            loss /= accumulation_steps
+        # optimizer.zero_grad()
+        # loss.backward(retain_graph=False)
+        # optimizer.step()
 
-        optimizer.zero_grad()
-        loss.backward(retain_graph=False)
-        optimizer.step()
-        # loss /= accumulation_steps
+        scaler.scale(loss).backward()
 
-        # scaler.scale(loss).backward()
-
-        # if engine.state.iteration % accumulation_steps == 0:
-        #     scaler.step(optimizer)
-        #     scaler.update()
-        #     optimizer.zero_grad()
+        if engine.state.iteration % accumulation_steps == 0:
+            scaler.step(optimizer)
+            scaler.update()
+            optimizer.zero_grad()
 
         return {"batch loss": loss.item()}
 
@@ -113,42 +104,6 @@ def default_evaluate_step(
         idx = random.randint(0, len(batch) - 1)
         print("IDX " + str(idx))
 
-        # if isinstance(model, Seq2Seq):
-            # for i in range(len(batch)):
-            #     y_pred = torch.stack(
-            #         [
-            #             model.generate(
-            #                 input_ids[i].unsqueeze(0),
-            #                 [list(cfg.bos_token_id)],
-            #                 beam_size=3,
-            #                 eos_id=cfg.eos_token_id,
-            #             )
-            #             for i in range(len(batch))
-            #         ]
-            #     )
-            # y_pred = model.generate(src_ids, [[cfg.bos_token_id]] * len(batch), beam_size=1, eos_id=cfg.eos_token_id)
-            # y_preds = model.generate(
-            #     input_ids[0].unsqueeze(0),
-            #     [[cfg.decoder_start_token_id]],
-            #     beam_size=5,
-            #     max_sequence_length=50,
-            #     eos_id=cfg.eos_token_id,
-            # )[0]
-            # y_pred = [s.output for s in y_preds]
-            
-            # generated = model.generate(
-            #     input_ids, max_length=50, num_beams=3, early_stopping=True
-            # )
-            # generated = model.generate(input_ids)
-
-            # print(src_ids[0].unsqueeze(0).shape)
-            # print(torch.tensor(y_pred[0]).unsqueeze(0).shape)
-            # src_ids_text = ids_to_clean_text(input_ids[idx].unsqueeze(0))
-            # preds = ids_to_clean_text(generated[idx].unsqueeze(0))
-            # tgt_text = ids_to_clean_text(labels[idx].unsqueeze(0))
-            # print(tokenizer.decode(output_ids[0], skip_special_tokens=True))
-
-        # else:
         y_pred = model.generate(input_ids)
 
         src_ids_text = ids_to_clean_text(input_ids)
@@ -166,24 +121,10 @@ def default_evaluate_step(
             f"Target: {' '.join(tgt_text[0])}\n"
         )
 
-        # loss = model(input_ids=input_ids, labels=labels,)[0]
-        if isinstance(model, Seq2Seq):
+        if isinstance(model, EncoderDecoderBase):
             loss = model(input_ids=input_ids, labels=labels)[0]
         else:
             loss = model(input_ids=input_ids, attention_mask=batch["attention_mask"], tgt=labels)
-        # logits = model(**batch, return_loss=False)
-
-        # output = logits.reshape(-1, logits.size(-1))
-        # target = labels[:, 1:].contiguous().reshape(-1)
-
-        # loss_fct = CrossEntropyLoss(ignore_index=cfg.pad_token_id)
-        # loss = loss_fct(output, target)
-        # nll = F.nll_loss(output, target, ignore_index=cfg.pad_token_id, reduction="sum")
-        # _, argmax = output.max(-1)
-        # invalid_targets = target.eq(cfg.pad_token_id)
-        # accuracy = argmax.eq(target).masked_fill_(
-        #     invalid_targets, 0
-        # ).long().sum() / target.size(0)
 
         return {
             "loss": loss.item(),

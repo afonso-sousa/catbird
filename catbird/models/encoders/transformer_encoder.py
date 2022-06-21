@@ -1,91 +1,66 @@
 import math
+from typing import Dict, List, Optional
 
 import torch
-import torch.nn as nn
+from torch import nn, Tensor
+from ..modules import PositionalEmbedding, TokenEmbedding
 
-from ..utils.transformer_blocks import (EncoderBlock, EncoderBlockPreNorm,
-                                        positional_embedding)
+from ..registry import ENCODERS
 
 
+def generate_square_subsequent_mask(sz: int) -> Tensor:
+    """Generates an upper-triangular matrix of -inf, with zeros on diag."""
+    return torch.triu(torch.ones(sz, sz) * float("-inf"), diagonal=1)
+
+
+@ENCODERS.register_module
 class TransformerEncoder(nn.Module):
+    """
+    Transformer encoder consisting of *cfg.encoder.layers* layers. Each layer
+    is a :class:`TransformerEncoderLayer`.
+    Args:
+        args (argparse.Namespace): parsed command-line arguments
+        dictionary (~fairseq.data.Dictionary): encoding dictionary
+        embed_tokens (torch.nn.Embedding): input embedding
+    """
+
     def __init__(
         self,
         vocab_size,
         pad_token_id=None,
-        hidden_size=512,
-        embedding_size=None,
-        num_layers=6,
+        embedding_size=256,
         num_heads=8,
-        inner_linear=2048,
-        inner_groups=1,
-        prenormalized=False,
-        batch_first=True,
-        layer_norm=True,
-        weight_norm=False,
-        dropout=0,
-        embedder=None,
+        num_layers=3,
+        ffnn_size=512,
+        dropout=0.1,
     ):
-
         super(TransformerEncoder, self).__init__()
         self.vocab_size = vocab_size
         self.pad_token_id = pad_token_id
-        embedding_size = embedding_size or hidden_size
-        if embedding_size != hidden_size:
-            self.input_projection = nn.Parameter(
-                torch.empty(embedding_size, hidden_size)
-            )
-            nn.init.kaiming_uniform_(self.input_projection, a=math.sqrt(5))
-        self.hidden_size = hidden_size
-        self.batch_first = batch_first
-        self.mask_symbol = pad_token_id
-        self.embedder = embedder or nn.Embedding(
-            vocab_size, embedding_size, padding_idx=pad_token_id
-        )
-        self.scale_embedding = hidden_size ** 0.5
-        self.dropout = nn.Dropout(dropout, inplace=True)
-        if prenormalized:
-            block = EncoderBlockPreNorm
-        else:
-            block = EncoderBlock
-        self.blocks = nn.ModuleList(
-            [
-                block(
-                    hidden_size,
-                    num_heads=num_heads,
-                    inner_linear=inner_linear,
-                    inner_groups=inner_groups,
-                    layer_norm=layer_norm,
-                    weight_norm=weight_norm,
-                    batch_first=batch_first,
-                    dropout=dropout,
-                )
-                for _ in range(num_layers)
-            ]
-        )
-        if layer_norm and prenormalized:
-            self.lnorm = nn.LayerNorm(hidden_size)
+        
+        self.embedding_size = embedding_size
+        self.num_heads = num_heads
+        self.num_layers = num_layers
+        self.ffnn_size = ffnn_size
 
-    def forward(self, inputs, hidden=None):
-        batch_dim, time_dim = (0, 1) if self.batch_first else (1, 0)
-        if self.mask_symbol is not None:
-            padding_mask = inputs.eq(self.mask_symbol)
-        else:
-            padding_mask = None
-        x = self.embedder(inputs).mul_(self.scale_embedding)
-        if hasattr(self, "input_projection"):
-            x = x @ self.input_projection
-        pos_embedding = positional_embedding(
-            x.size(time_dim), x.size(-1), device=x.device
-        )
-        x.add_(pos_embedding.unsqueeze(batch_dim))
-        x = self.dropout(x)
+        self.embed_tokens = TokenEmbedding(vocab_size, embedding_size)
+        self.embed_positions = PositionalEmbedding(embedding_size, dropout=dropout)
 
-        for block in self.blocks:
-            block.set_mask(padding_mask)
-            x = block(x)
+        encoder_layer = nn.TransformerEncoderLayer(embedding_size, num_heads, ffnn_size, dropout,)
+        encoder_norm = nn.LayerNorm(embedding_size)
+        self.encoder = nn.TransformerEncoder(encoder_layer, num_layers, encoder_norm)
 
-        if hasattr(self, "lnorm"):
-            x = self.lnorm(x)
+    def forward(
+        self,
+        input_ids,
+    ):
+        # sequence_length = input_ids.shape[0]
+        # padding_mask = (input_ids == self.pad_token_id).transpose(0, 1)
+        # device = next(self.parameters()).device
+        # mask = generate_square_subsequent_mask(sequence_length).to(device)
 
-        return (x, padding_mask)
+        embedded_tokens = self.embed_positions(self.embed_tokens(input_ids))
+        # memory = self.encoder(embedded_tokens, mask=mask, src_key_padding_mask=padding_mask)
+        memory = self.encoder(embedded_tokens)
 
+        return memory

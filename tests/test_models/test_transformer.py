@@ -1,8 +1,8 @@
 import unittest
+
 import torch
 from catbird.core import Config
 from catbird.models import build_generator_model
-
 
 
 class TestDatasets(unittest.TestCase):
@@ -11,20 +11,24 @@ class TestDatasets(unittest.TestCase):
         ##### Config #####
         cfg_dict = dict(
             model = dict(
-                type="StackedResidualLSTM",
+                type="VanillaTransformer",
                 encoder=dict(
-                    type="RecurrentEncoder",
-                    mode="LSTM",
-                    num_layers=2,
-                    hidden_size=256,
-                    dropout=0.5),
+                    type="TransformerEncoder",
+                    embedding_size=256,
+                    num_heads=8,
+                    num_layers=3,
+                    ffnn_size=512,
+                    dropout=0.1,
+                ),
                 decoder=dict(
-                    type="RecurrentDecoder",
-                    mode="LSTM",
-                    num_layers=2,
-                    hidden_size=256,
-                    dropout_in=0.5),
-            )
+                    type="TransformerDecoder",
+                    embedding_size=256,
+                    num_heads=8,
+                    num_layers=3,
+                    ffnn_size=512,
+                    dropout=0.1,
+                ),
+            ),
         )
         cls.cfg = Config(cfg_dict)
         

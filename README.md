@@ -28,14 +28,14 @@ We support Teacher Forcing and for decoding both greedy and beam search.
 ## Quick Start
 
 ### Requirements and Installation
-The project is based on PyTorch 1.5+ and Python 3.6+.
+The project is based on PyTorch 1.11+ and Python 3.8+.
 
 ## Install Catbird
 The package can be installed using pip:
 ```shell
 pip install catbird
 ```
-This does not include configuration files or tools.
+This does not include configuration files or tools and is not yet actively updated.
 Alternatively, you can run from the source code:
 
 **a. Clone the repository.**
@@ -43,11 +43,18 @@ Alternatively, you can run from the source code:
 git clone https://github.com/AfonsoSalgadoSousa/catbird.git
 ```
 **b. Install dependencies.**
-This project uses Poetry as its package manager. There should Make sure you have it installed. For more info check [Poetry's official documentation](https://python-poetry.org/docs/).
+
+This project uses Poetry as its package manager. Make sure you have it installed. For more info check [Poetry's official documentation](https://python-poetry.org/docs/).
 To install dependencies, simply run:
 ```shell
 poetry install
 ```
+
+We have also compiled an `enviroment.yml` file with all the required dependencies to create an Anaconda environment. To do so, simply run:
+```shell
+conda env create -f environment.yml
+```
+
 
 ## Dataset Preparation
 For now, we support [Quora Question Pairs dataset](https://quoradata.quora.com/First-Quora-Dataset-Release-Question-Pairs), and [MSCOCO](https://cocodataset.org/#download). It is recommended to download and extract the datasets somewhere outside the project directory and symlink the dataset root to `$CATBIRD/data` as below. If your folder structure is different, you may need to change the corresponding paths in config files.

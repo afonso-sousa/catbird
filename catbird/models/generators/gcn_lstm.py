@@ -1,11 +1,11 @@
 from ..registry import GENERATORS
-from .base import Seq2Seq
+from .base import EncoderDecoderBase
 from ..builder import build_graph_encoder
 import torch
 
 
 @GENERATORS.register_module
-class GCNLSTM(Seq2Seq):
+class GCNLSTM(EncoderDecoderBase):
     """This is an implementation of paper ` <https://>`.
     """
 

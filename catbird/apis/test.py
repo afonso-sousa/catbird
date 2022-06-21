@@ -11,7 +11,7 @@ from ignite.engine import Engine
 from torch import nn
 from transformers import AutoTokenizer
 
-from catbird.models.generators.base import Seq2Seq
+from catbird.models.generators.base import EncoderDecoderBase
 
 
 def default_test_step(
@@ -48,7 +48,7 @@ def default_test_step(
         src_ids = batch["input_ids"]
         labels = batch["labels"]
 
-        if isinstance(model, Seq2Seq):
+        if isinstance(model, EncoderDecoderBase):
             y_pred = model.generate(src_ids, num_beams = cfg.test.get("num_beams", 1))
         else:
             y_pred = model.generate(src_ids)

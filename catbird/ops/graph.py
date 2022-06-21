@@ -1,5 +1,4 @@
 from stanza.server import CoreNLPClient
-from torch_geometric.data import Data
 from sentence_transformers import SentenceTransformer
 import torch
 from torch import nn
@@ -27,6 +26,8 @@ def extract_triples(text, annotators=["openie"], properties={}):
 
 
 def build_graph_from_triples(triples):
+    from torch_geometric.data import Data
+    
     # TODO remove sentence encoding from this method
     model = SentenceTransformer('all-MiniLM-L6-v2')
     # triples is list of dictionaries
@@ -74,20 +75,3 @@ class IETripleGraph(nn.Module):
         else:
             self.annotators=["openie"]
             self.properties={}
-
-
-    # def forward(self, input):
-
-    #     return voxelization(input, self.voxel_size, self.point_cloud_range,
-    #                         self.max_num_points, max_voxels,
-    #                         self.deterministic)
-
-    # def __repr__(self):
-    #     tmpstr = self.__class__.__name__ + '('
-    #     tmpstr += 'voxel_size=' + str(self.voxel_size)
-    #     tmpstr += ', point_cloud_range=' + str(self.point_cloud_range)
-    #     tmpstr += ', max_num_points=' + str(self.max_num_points)
-    #     tmpstr += ', max_voxels=' + str(self.max_voxels)
-    #     tmpstr += ', deterministic=' + str(self.deterministic)
-    #     tmpstr += ')'
-    #     return tmpstr

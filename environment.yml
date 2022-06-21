@@ -5,14 +5,15 @@ channels:
   - conda-forge
 dependencies:
   - python=3.8
-  - pytorch=1.10.2
-  - pyg=2.0.3
-  - pytorch-ignite=0.4.8
-  - datasets=1.16.1
+  - pytorch=1.11.0
+  - pyg=2.0.4
+  - pytorch-ignite=0.4.9
+  - datasets=2.2.2
   - sentencepiece=0.1.96
   - addict=2.4.0
-  - transformers=4.14.1
-  - tensorboardX=2.5
-  - nltk=3.6.6
+  - pip:
+    - transformers
+  - tensorboardX=2.5.1
+  - nltk=3.7
   - stanza=1.2.3
-  - sacrebleu=2.0.0
+  - sacrebleu=2.1.0

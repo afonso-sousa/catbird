@@ -1,15 +1,12 @@
-from typing import Optional
-
 from catbird.models.losses import pair_wise_loss
 
 from ..builder import build_discriminator
-from ..postprocessing.search import SequenceGenerator
 from ..registry import GENERATORS
-from .base import Seq2Seq
+from .base import EncoderDecoderBase
 
 
 @GENERATORS.register_module
-class EDD(Seq2Seq):
+class EDD(EncoderDecoderBase):
     """
     LSTM-based Encoder-Decoder-Discriminator (EDD) architecture.
 
@@ -34,4 +31,3 @@ class EDD(Seq2Seq):
         cel_loss = super().loss(out, tgt)
         pwd_loss = pair_wise_loss(discriminated_out, discriminated_tgt)
         return cel_loss + pwd_loss
-

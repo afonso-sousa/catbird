@@ -47,7 +47,7 @@ def parse_args():
 
 def training(local_rank, cfg, args):
     rank = idist.get_rank()
-    # manual_seed(args.seed + rank)
+    manual_seed(args.seed + rank)
 
     logger = setup_logger(name="Train", distributed_rank=local_rank)
     # log_basic_info(logger, cfg)

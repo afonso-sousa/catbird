@@ -1,8 +1,8 @@
 import torch
-from torch_geometric.data import Data
 
 
 def build_levi_graph(triples, tokenizer):
+    from torch_geometric.data import Data
     # triples is list of dictionaries
     nodes = set()
     src_edges = []
