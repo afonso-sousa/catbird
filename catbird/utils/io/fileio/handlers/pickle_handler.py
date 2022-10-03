@@ -1,8 +1,6 @@
-"""File that defines Pickle file handler."""
-
-import os
 import pickle
-from typing import Any, Union
+from typing import Any, IO, Union
+from os import PathLike
 
 from .base import BaseFileHandler
 
@@ -10,47 +8,21 @@ from .base import BaseFileHandler
 class PickleHandler(BaseFileHandler):
     """Pickle file handler."""
 
-    def load_from_fileobj(
-        self, file: Union[str, bytes, os.PathLike], **kwargs: Any
-    ) -> Any:
-        """Load Python objects from Pickle file.
-
-        Args:
-            file (Union[str, bytes, os.PathLike]): Pickle file with a Python object representation.
-
-        Returns:
-            Any: returns the file-corresponding Python object.
-        """
+    def load_from_fileobj(self, file: IO[Any], **kwargs: Any) -> Any:
         return pickle.load(file, **kwargs)
 
-    def load_from_path(
-        self, filepath: Union[str, bytes, os.PathLike], **kwargs: Any
-    ) -> Any:
-        return super(PickleHandler, self).load_from_path(filepath, mode="rb", **kwargs)
-
-    def dump_to_fileobj(
-        self, obj: Any, file: Union[str, bytes, os.PathLike], **kwargs: Any
-    ) -> None:
-        """Dump a Python object into a Pickle-formatted file.
-
-        Args:
-            obj (Any): a Python object to dump.
-            file (Union[str, bytes, os.PathLike]): Pickle file with a Python object representation.
-        """
-        pickle.dump(obj, file, **kwargs)
+    def load_from_path(self, filepath: Union[str, PathLike], **kwargs: Any) -> Any:
+        with open(filepath, mode="rb") as f:
+            return self.load_from_fileobj(f, **kwargs)
 
     def dump_to_path(
-        self, obj: Any, filepath: Union[str, bytes, os.PathLike], **kwargs: Any
+        self, obj: Any, filepath: Union[str, PathLike], **kwargs: Any
     ) -> None:
-        super(PickleHandler, self).dump_to_path(obj, filepath, mode="wb", **kwargs)
+        with open(filepath, mode="wb") as f:
+            self.dump_to_fileobj(obj, f, **kwargs)
 
-    def dump_to_str(self, obj: Any, **kwargs: Any) -> str:
-        """Serialize a Python object into a Pickle string format.
+    def dump_to_fileobj(self, obj: Any, file: IO[Any], **kwargs: Any) -> None:
+        pickle.dump(obj, file, **kwargs)
 
-        Args:
-            obj (Union[str, bytes, os.PathLike]): a Python object to dump into file.
-
-        Returns:
-            str: Pickle string-formatted serialized object.
-        """
+    def dump_to_str(self, obj: Any, **kwargs: Any) -> Union[str, bytes]:
         return pickle.dumps(obj, **kwargs)

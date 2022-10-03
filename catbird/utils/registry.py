@@ -1,14 +1,15 @@
 import inspect
+from typing import Dict, Any
 
 
 class Registry:
-    """Creates a registration subgroup."""
+    """Creates a registration subgroup for modules to be added."""
 
-    def __init__(self, name):
+    def __init__(self, name: str) -> None:
         self._name = name
-        self._module_dict = {}
+        self._module_dict: Dict[str, Any] = {}
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         format_str = (
             self.__class__.__name__
             + f"(name={self._name}, items={list(self._module_dict.keys())})"
@@ -16,17 +17,17 @@ class Registry:
         return format_str
 
     @property
-    def name(self):
+    def name(self) -> str:
         return self._name
 
     @property
-    def module_dict(self):
+    def module_dict(self) -> Dict:
         return self._module_dict
 
-    def get(self, key):
+    def get(self, key: str) -> Any:
         return self._module_dict.get(key, None)
 
-    def _register_module(self, module_class):
+    def _register_module(self, module_class: Any) -> None:
         """Register a module.
         Args:
             module (:obj:`nn.Module`): Module to be registered.
@@ -38,12 +39,12 @@ class Registry:
             raise KeyError(f"{module_name} is already registered in {self.name}")
         self._module_dict[module_name] = module_class
 
-    def register_module(self, cls):
+    def register_module(self, cls: Any) -> Any:
         self._register_module(cls)
         return cls
 
 
-def build_from_cfg(cfg, registry, default_args=None):
+def build_from_cfg(cfg, registry: Registry, default_args: dict = None):
     """Build a module from config dict.
     Args:
         cfg (dict): Config dict. It should at least contain the key "type".

@@ -1,10 +1,9 @@
 """File for general input-output handling."""
 
 from pathlib import Path
-from typing import Any, Optional, Union
-import os
+from typing import Any, Optional, IO, Union
 
-from .handlers import JsonHandler, YamlHandler, PickleHandler
+from .handlers import JsonHandler, YamlHandler, PickleHandler, BaseFileHandler
 
 
 file_handlers = {
@@ -17,9 +16,9 @@ file_handlers = {
 
 
 def load(
-    file: Union[str, bytes, os.PathLike],
+    file: Union[str, Path, IO[Any]],
     file_format: Optional[str] = None,
-    **kwargs: Any
+    **kwargs: Any,
 ) -> Any:
     """Load data from json/yaml/pickle files. This method provides a unified api for loading data from serialized files.
 
@@ -39,9 +38,10 @@ def load(
     if file_format is None and isinstance(file, str):
         file_format = file.split(".")[-1]
     if file_format not in file_handlers:
-        raise TypeError("Unsupported format: {}".format(file_format))
+        raise TypeError(f"Unsupported format: {file_format}")
 
     handler = file_handlers[file_format]
+    assert isinstance(handler, (JsonHandler, YamlHandler, PickleHandler))
     if isinstance(file, str):
         obj = handler.load_from_path(file, **kwargs)
     elif hasattr(file, "read"):
@@ -53,10 +53,10 @@ def load(
 
 def dump(
     obj: Any,
-    file: Optional[Union[str, bytes, os.PathLike]] = None,
+    file: Optional[Union[str, Path, IO[Any]]] = None,
     file_format: Optional[str] = None,
-    **kwargs: Any
-) -> Optional[str]:
+    **kwargs: Any,
+) -> Optional[Union[str, bytes]]:
     """Dump data to json/yaml/pickle strings or files.
 
     This method provides a unified api for dumping data as strings or to files,
@@ -64,7 +64,7 @@ def dump(
 
     Args:
         obj ([Any]): The python object to be dumped.
-        file (Optional[Union[str, bytes, os.PathLike]], optional): If not specified, then the object\
+        file (Optional[IO[Any]], optional): If not specified, then the object\
         is dump to a str, otherwise to a file specified by the filename or
         file-like object. Defaults to None.
         file_format (Optional[str], optional): A string specifying the file format. Defaults to None.
@@ -85,9 +85,9 @@ def dump(
         elif file is None:
             raise ValueError("file_format must be specified since file is None")
     if file_format not in file_handlers:
-        raise TypeError("Unsupported format: {}".format(file_format))
+        raise TypeError(f"Unsupported format: {file_format}")
 
-    handler = file_handlers[file_format]
+    handler: BaseFileHandler = file_handlers[file_format]
     if file is None:
         return handler.dump_to_str(obj, **kwargs)
     elif isinstance(file, str):
@@ -96,3 +96,4 @@ def dump(
         handler.dump_to_fileobj(obj, file, **kwargs)
     else:
         raise TypeError('"file" must be a filename str or a file-object')
+    return None

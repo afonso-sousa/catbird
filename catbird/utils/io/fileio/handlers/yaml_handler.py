@@ -1,5 +1,3 @@
-"""File that defines YAML file handler."""
-
 import yaml
 
 try:
@@ -8,8 +6,8 @@ try:
 except ImportError:
     from yaml import Loader, Dumper  # type: ignore
 
-import os
-from typing import Any, Union
+from typing import Any, IO, Union
+from os import PathLike
 
 from .base import BaseFileHandler
 
@@ -17,40 +15,24 @@ from .base import BaseFileHandler
 class YamlHandler(BaseFileHandler):
     """YAML file handler."""
 
-    def load_from_fileobj(
-        self, file: Union[str, bytes, os.PathLike], **kwargs: Any
-    ) -> Any:
-        """Load Python objects from YAML file.
-
-        Args:
-            file (Union[str, bytes, os.PathLike]): YAML file with a Python object representation.
-
-        Returns:
-            Any: returns the file-corresponding Python object.
-        """
+    def load_from_fileobj(self, file: IO[Any], **kwargs: Any) -> Any:
         kwargs.setdefault("Loader", Loader)
         return yaml.load(file, **kwargs)
 
-    def dump_to_fileobj(
-        self, obj: Any, file: Union[str, bytes, os.PathLike], **kwargs: Any
-    ) -> None:
-        """Dump a Python object into a YAML-formatted file.
+    def load_from_path(self, filepath: Union[str, PathLike], **kwargs: Any) -> Any:
+        with open(filepath, mode="r", encoding="utf-8") as f:
+            return self.load_from_fileobj(f, **kwargs)
 
-        Args:
-            obj (Any): a Python object to dump.
-            file (Union[str, bytes, os.PathLike]): YAML file with a Python object representation.
-        """
+    def dump_to_path(
+        self, obj: Any, filepath: Union[str, PathLike], **kwargs: Any
+    ) -> None:
+        with open(filepath, mode="w", encoding="utf-8") as f:
+            self.dump_to_fileobj(obj, f, **kwargs)
+
+    def dump_to_fileobj(self, obj: Any, file: IO[Any], **kwargs: Any) -> None:
         kwargs.setdefault("Dumper", Dumper)
         yaml.dump(obj, file, **kwargs)
 
-    def dump_to_str(self, obj: Any, **kwargs: Any) -> str:
-        """Serialize a Python object into a YAML string format.
-
-        Args:
-            obj (Union[str, bytes, os.PathLike]): a Python object to dump into file.
-
-        Returns:
-            str: YAML string-formatted serialized object.
-        """
+    def dump_to_str(self, obj: Any, **kwargs: Any) -> Union[str, bytes]:
         kwargs.setdefault("Dumper", Dumper)
         return yaml.dump(obj, **kwargs)

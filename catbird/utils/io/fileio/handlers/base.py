@@ -1,5 +1,6 @@
 from abc import ABCMeta, abstractmethod
-from typing import Any, IO
+from typing import Any, IO, Union
+from os import PathLike
 
 
 class BaseFileHandler:
@@ -8,11 +9,11 @@ class BaseFileHandler:
     __metaclass__ = ABCMeta
 
     @abstractmethod
-    def load_from_fileobj(self, file: IO, **kwargs: Any) -> Any:
+    def load_from_fileobj(self, file: IO[Any], **kwargs: Any) -> Any:
         """Abstraction for loading Python objects from files.
 
         Args:
-            file (Union[str, bytes, os.PathLike]): file with a Python object representation.
+            file (IO[Any]): file with a Python object representation.
 
         Returns:
             Any: returns the file-corresponding Python object.
@@ -20,17 +21,17 @@ class BaseFileHandler:
         pass
 
     @abstractmethod
-    def dump_to_fileobj(self, obj: Any, file: IO, **kwargs: Any) -> None:
+    def dump_to_fileobj(self, obj: Any, file: IO[Any], **kwargs: Any) -> None:
         """Abstraction for dumping a Python object into a file format.
 
         Args:
             obj (Any): a Python object to dump into file.
-            file (Union[str, bytes, os.PathLike]): file with a Python object representation.
+            file (IO[Any]): file with a Python object representation.
         """
         pass
 
     @abstractmethod
-    def dump_to_str(self, obj: Any, **kwargs: Any) -> str:
+    def dump_to_str(self, obj: Any, **kwargs: Any) -> Union[str, bytes]:
         """Abstraction for serializing a Python object into a string format.
 
         Args:
@@ -41,26 +42,26 @@ class BaseFileHandler:
         """
         pass
 
-    def load_from_path(self, filepath: IO, mode: str = "r", **kwargs: Any) -> Any:
+    @abstractmethod
+    def load_from_path(self, filepath: Union[str, PathLike], **kwargs: Any) -> Any:
         """Load serialized object from file.
 
         Args:
-            filepath (Union[str, bytes, os.PathLike]): Path to a file.
+            filepath (Union[str, Path]): Path to a file.
             mode (str, optional): Specifies the mode in which the file is opened. Defaults to "r".
 
         Returns:
             Any: a Python object.
         """
-        with open(filepath, mode) as f:
-            return self.load_from_fileobj(f, **kwargs)
+        pass
 
-    def dump_to_path(self, obj: Any, filepath: IO, mode: str = "w", **kwargs) -> None:
+    @abstractmethod
+    def dump_to_path(self, obj: Any, filepath: Union[str, PathLike], **kwargs) -> None:
         """Dump a serialized object into a file.
 
         Args:
             obj (Any): a Python object
-            filepath (Union[str, bytes, os.PathLike]): Path to a file.
+            filepath (Union[str, Path]): Path to a file.
             mode (str, optional): Specifies the mode in which the file is opened. Defaults to "w".
         """
-        with open(filepath, mode) as f:
-            self.dump_to_fileobj(obj, f, **kwargs)
+        pass

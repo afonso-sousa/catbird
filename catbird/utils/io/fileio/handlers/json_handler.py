@@ -1,8 +1,6 @@
-"""File that defines JSON file handler."""
-
 import json
-import os
-from typing import Any, Union
+from typing import Any, IO, Union
+from os import PathLike
 
 from .base import BaseFileHandler
 
@@ -10,35 +8,21 @@ from .base import BaseFileHandler
 class JsonHandler(BaseFileHandler):
     """JSON file handler."""
 
-    def load_from_fileobj(self, file: Union[str, bytes, os.PathLike]) -> Any:
-        """Load Python objects from JSON file.
+    def load_from_fileobj(self, file: IO[Any], **kwargs: Any) -> Any:
+        return json.load(file, **kwargs)
 
-        Args:
-            file (Union[str, bytes, os.PathLike]): JSON file with a Python object representation.
+    def load_from_path(self, filepath: Union[str, PathLike], **kwargs: Any) -> Any:
+        with open(filepath, mode="r", encoding="utf-8") as f:
+            return self.load_from_fileobj(f, **kwargs)
 
-        Returns:
-            Any: returns the file-corresponding Python object.
-        """
-        return json.load(file)
-
-    def dump_to_fileobj(
-        self, obj: Any, file: Union[str, bytes, os.PathLike], **kwargs: Any
+    def dump_to_path(
+        self, obj: Any, filepath: Union[str, PathLike], **kwargs: Any
     ) -> None:
-        """Dump a Python object into a JSON-formatted file.
+        with open(filepath, mode="w", encoding="utf-8") as f:
+            self.dump_to_fileobj(obj, f, **kwargs)
 
-        Args:
-            obj (Any): a Python object to dump.
-            file (Union[str, bytes, os.PathLike]): JSON file with a Python object representation.
-        """
+    def dump_to_fileobj(self, obj: Any, file: IO[Any], **kwargs: Any) -> None:
         json.dump(obj, file, **kwargs)
 
-    def dump_to_str(self, obj: Any, **kwargs: Any) -> str:
-        """Serialize a Python object into a JSON string format.
-
-        Args:
-            obj (Union[str, bytes, os.PathLike]): a Python object to dump into file.
-
-        Returns:
-            str: JSON string-formatted serialized object.
-        """
+    def dump_to_str(self, obj: Any, **kwargs: Any) -> Union[str, bytes]:
         return json.dumps(obj, **kwargs)

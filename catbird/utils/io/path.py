@@ -2,10 +2,10 @@
 
 from pathlib import Path
 from typing import Any, TextIO, Union
-import os
+from os import PathLike
 
 
-def fopen(filepath: Union[str, Path], *args: Any, **kwargs: Any) -> TextIO:
+def fopen(filepath: Union[str, bytes, PathLike], *args: Any, **kwargs: Any) -> TextIO:
     """Open file.
 
     Args:
@@ -14,17 +14,18 @@ def fopen(filepath: Union[str, Path], *args: Any, **kwargs: Any) -> TextIO:
     Returns:
         TextIOWrapper: buffer text stream.
     """
+    assert isinstance(filepath, (str, Path))
     if isinstance(filepath, str):
         return open(filepath, *args, **kwargs)
-    elif isinstance(filepath, Path):
+    if isinstance(filepath, Path):
         return filepath.open(*args, **kwargs)
 
 
-def check_file_exist(filename: Union[str, bytes, os.PathLike]) -> None:
+def check_file_exist(filename: Union[str, PathLike]) -> None:
     """Check whether a file exists.
 
     Args:
-        filename (TextIO): filename
+        filename (Union[str, bytes, PathLike[Any]]): filename
 
     Raises:
         FileNotFoundError: raises exception if file does not exist

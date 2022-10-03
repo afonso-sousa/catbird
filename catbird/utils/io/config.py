@@ -1,8 +1,7 @@
-import os
 import sys
 from importlib import import_module
 from pathlib import Path
-from typing import Any, Iterator, Optional, Union
+from typing import IO, Any, Iterator, Optional, Union
 
 from addict import Dict
 
@@ -14,8 +13,8 @@ from .path import check_file_exist
 class Config:
     """A facility for config and config files.
 
-    It supports common file formats as configs: json/yaml.
-    The interface is the same as a dict object and also allows access config values as attributes.
+    It supports common file formats as configs, like json or yaml.
+    The interface is the same as a dict object and also allows access to config values as attributes.
     Example:
         >>> cfg = Config(dict(a=1, b=dict(b1=[0, 1])))
         >>> cfg.a
@@ -34,7 +33,7 @@ class Config:
         "{'item1': [1, 2], 'item2': {'a': 0}, 'item3': True, 'item4': 'test'}"
     """
 
-    def __init__(self, cfg_dict: dict = None, filename: str = None) -> None:
+    def __init__(self, cfg_dict: dict = {}, filename: str = None) -> None:
         """Init config parameters.
 
         Args:
@@ -44,20 +43,21 @@ class Config:
         Raises:
             TypeError: Raises exception if cfg_dict is not a dictionary
         """
-        if cfg_dict is None:
-            cfg_dict = dict()
-        elif not isinstance(cfg_dict, dict):
-            raise TypeError(
-                "cfg_dict must be a dict, but got {}".format(type(cfg_dict))
-            )
 
-        super(Config, self).__setattr__("_cfg_dict", Dict(cfg_dict))
-        super(Config, self).__setattr__("_filename", filename)
+        assert isinstance(
+            cfg_dict, dict
+        ), f"cfg_dict must be a dict, but got {type(cfg_dict)}"
+        super().__setattr__("_cfg_dict", Dict(cfg_dict))
+
         if filename:
-            with open(filename, "r") as f:
-                super(Config, self).__setattr__("_text", f.read())
+            assert isinstance(
+                filename, str
+            ), f"filename must be a str, but got {type(filename)}"
+            with open(filename, mode="r", encoding="utf-8") as f:
+                super().__setattr__("_text", f.read())
         else:
-            super(Config, self).__setattr__("_text", "")
+            super().__setattr__("_text", "")
+        super().__setattr__("_filename", filename)
 
     @staticmethod
     def fromfile(filename: str) -> "Config":
@@ -72,13 +72,13 @@ class Config:
         Returns:
             Config: a config instance with the information in the provided file.
         """
-        filename = Path(filename).resolve()
-        check_file_exist(filename)
-        if filename.suffix == ".py":
-            module_name = filename.stem
+        filepath: Path = Path(filename).resolve()
+        check_file_exist(filepath)
+        if filepath.suffix == ".py":
+            module_name = filepath.stem
             if "." in module_name:
                 raise ValueError("Dots are not allowed in config file path.")
-            config_dir = Path(filename).parent
+            config_dir = Path(filepath).parent
             sys.path.insert(0, config_dir.as_posix())
             mod = import_module(module_name)
             sys.path.pop(0)
@@ -87,15 +87,15 @@ class Config:
                 for name, value in mod.__dict__.items()
                 if not name.startswith("__")
             }
-        elif filename.suffix in [".yml", ".yaml", ".json"]:
-            cfg_dict = load(filename)
+        elif filepath.suffix in [".yml", ".yaml", ".json"]:
+            cfg_dict = load(filepath)
         else:
             raise IOError("Only py/yml/yaml/json types are supported for now.")
-        return Config(cfg_dict, filename=filename)
+        return Config(cfg_dict, filename=filepath.as_posix())
 
     def dump(
-        self, file: Optional[Union[str, bytes, os.PathLike]] = None
-    ) -> Optional[str]:
+        self, file: Optional[Union[str, Path, IO[Any]]] = None
+    ) -> Optional[Union[str, bytes]]:
         """Dump the information in a Config instance into a file.
 
         Args:
@@ -104,12 +104,14 @@ class Config:
         Returns:
             [Optional[str], optional]: A string representation of the information in the Config instance or nothing.
         """
-        cfg_dict = super(Config, self).__getattribute__("_cfg_dict").to_dict()
+        cfg_dict = super().__getattribute__("_cfg_dict").to_dict()
         if file is None:
+            assert self.filename is not None
             file_format = self.filename.split(".")[-1]
             return f_dump(cfg_dict, file_format=file_format)
-        else:
-            f_dump(cfg_dict, file)
+
+        f_dump(cfg_dict, file)
+        return None
 
     @property
     def filename(self) -> Optional[str]:
@@ -135,7 +137,7 @@ class Config:
         Returns:
             str: Object representation.
         """
-        return "Config (path: {}): {}".format(self.filename, self._cfg_dict.__repr__())
+        return f"Config (path: {self.filename}): {self._cfg_dict.__repr__()}"
 
     def __len__(self) -> int:
         """Get number of entries in Config object.
