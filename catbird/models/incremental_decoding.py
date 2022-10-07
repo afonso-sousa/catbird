@@ -9,7 +9,7 @@ from typing import Dict, Optional
 from torch import Tensor
 
 
-class FairseqIncrementalState(object):
+class IncrementalState(object):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.init_incremental_state()
@@ -45,7 +45,7 @@ class FairseqIncrementalState(object):
 
 
 def with_incremental_state(cls):
-    cls.__bases__ = (FairseqIncrementalState,) + tuple(
-        b for b in cls.__bases__ if b != FairseqIncrementalState
+    cls.__bases__ = (IncrementalState,) + tuple(
+        b for b in cls.__bases__ if b != IncrementalState
     )
     return cls
