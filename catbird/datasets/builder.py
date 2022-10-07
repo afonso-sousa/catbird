@@ -4,13 +4,14 @@ from pathlib import Path
 from typing import Tuple
 
 import ignite.distributed as idist
-from catbird.core import Config, load  # type: ignore
 from ignite.utils import setup_logger
 from torch.utils.data import DataLoader, Dataset
 from transformers import AutoTokenizer
 
-from .sentence_pair_dataset import SentencePairDataset
+from catbird.utils import Config, load  # type: ignore
+
 from .graph_sent_pair_dataset import GraphSentPairDataset
+from .sentence_pair_dataset import SentencePairDataset
 
 
 def build_dataset(cfg: Config, split: str, tokenizer: AutoTokenizer) -> Tuple[Dataset]:
@@ -34,7 +35,9 @@ def build_dataset(cfg: Config, split: str, tokenizer: AutoTokenizer) -> Tuple[Da
     if cfg.dataset_name.lower() in ["quora", "mscoco"]:
         data = load(Path(cfg.data_root) / f"{cfg.dataset_name.lower()}_{split}.pkl")
         if cfg.data.get("use_ie_graph", False):
-            graph = load(Path(cfg.data_root) / f"{cfg.dataset_name.lower()}_triples_{split}.pkl")
+            graph = load(
+                Path(cfg.data_root) / f"{cfg.dataset_name.lower()}_triples_{split}.pkl"
+            )
             dataset = GraphSentPairDataset(cfg, split, data, tokenizer, graph)
         else:
             dataset = SentencePairDataset(cfg, split, data, tokenizer)
@@ -58,7 +61,7 @@ def get_dataloader(cfg: Config, split: str, dataset: Dataset) -> DataLoader:
     """
     if cfg.data.get("use_ie_graph", False):
         from torch_geometric.loader import DataLoader as PyGDataLoader
-        
+
         loader = PyGDataLoader(
             dataset,
             batch_size=cfg.train.batch_size * (1 if split == "train" else 2),

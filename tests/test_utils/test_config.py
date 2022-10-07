@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 import yaml
-from catbird.core import Config
+from catbird.utils import Config
 
 data_path = Path(__file__).parent.parent / "data"
 
@@ -17,7 +17,7 @@ def test_instancing():
     assert len(cfg) == 0
     assert cfg._cfg_dict == {}
 
-    with pytest.raises(TypeError):
+    with pytest.raises(AssertionError):
         Config([0, 1])
 
 
@@ -25,11 +25,11 @@ cfg_dict = dict(item1=[1, 2], item2=dict(a=0), item3=True, item4="test")
 
 
 def test_construction_python():
-    cfg_file = osp.join(data_path, 'config/a.py')
+    cfg_file = osp.join(data_path, "config/a.py")
     cfg = Config(cfg_dict, filename=cfg_file)
     assert isinstance(cfg, Config)
     assert cfg.filename == cfg_file
-    assert cfg.text == open(cfg_file, 'r').read()
+    assert cfg.text == open(cfg_file, "r").read()
 
 
 def test_construction_json():

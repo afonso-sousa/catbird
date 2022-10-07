@@ -1,4 +1,4 @@
-from catbird.core import Registry
+from catbird.utils import Registry
 
 GENERATORS = Registry("generator")
 ENCODERS = Registry("encoder")

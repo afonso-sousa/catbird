@@ -6,16 +6,27 @@ num_workers = 4
 dataset_name = "Quora"
 data_root = "data/quora/"
 data = dict(
-    mask_pad_token = True,
-    max_length=50,
+    max_length=40,
     train=dict(dataset_length=-1),
-    val=dict(train_test_split=0.3, dataset_length=2000,),
+    val=dict(dataset_length=-1),
 )
 
-# train settings
-train = dict(num_epochs=100, batch_size=128, accumulation_steps=1, with_amp=False, epoch_length=100)
+tokenizer = dict(name="roberta-base")
 
-test = dict(print_output_every=5, num_beams=1,)
+# train settings
+train = dict(
+    num_epochs=100,
+    batch_size=32,
+    accumulation_steps=1,
+    with_amp=False,
+    epoch_length=None,
+    validation_interval=10,  # epochs
+)
+
+test = dict(
+    print_output_every=15,  # batchs
+    num_beams=1,
+)
 
 # model settings
 model = dict(
@@ -23,20 +34,25 @@ model = dict(
     encoder=dict(
         type="RecurrentEncoder",
         mode="LSTM",
-        num_layers=2,
-        hidden_size=256,
-        dropout=0.5),
+        num_layers=3,
+        hidden_size=512,
+        dropout_out=0.5,
+        residual=True,
+    ),
     decoder=dict(
         type="RecurrentDecoder",
         mode="LSTM",
-        num_layers=2,
-        hidden_size=256,
-        dropout_in=0.5),
+        num_layers=3,
+        hidden_size=512,
+        dropout_out=0.5,
+        residual=True,
+    ),
 )
 
 # optimizer settings
-optimizer = dict(type="SGD", lr=0.1, momentum=0.9)
-# optimizer = dict(type="Adam", lr=1e-2)
+optimizer = dict(type="SGD", lr=8e-4, momentum=0.9)
+# optimizer = dict(type="Adam", lr=8e-4)
+# optimizer = dict(type="RMSprop", lr=8e-4)
 
 # scheduler settings
-scheduler = dict(num_warmup_epochs=4, peak_lr=0.4)
+scheduler = dict(num_warmup_epochs=4, peak_lr=1e-3)

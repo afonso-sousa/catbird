@@ -6,14 +6,9 @@ from pathlib import Path
 
 import ignite.distributed as idist
 from catbird.apis import create_evaluator, create_trainer
-from catbird.core import (
-    Config,
-    build_lr_scheduler,
-    build_optimizer,
-    log_basic_info,
-    log_metrics,
-    mkdir_or_exist,
-)
+from catbird.utils import Config, mkdir_or_exist, log_metrics
+
+from catbird.core import build_optimizer
 from catbird.datasets import build_dataset, get_dataloader
 from catbird.models import build_generator_model
 from catbird.tokenizers import build_tokenizer
@@ -21,8 +16,12 @@ from ignite.contrib.engines import common
 from ignite.engine import Events
 from ignite.handlers import Checkpoint, DiskSaver, global_step_from_engine
 from ignite.utils import manual_seed, setup_logger
+from ignite.metrics import Bleu
+import logging
 
 warnings.filterwarnings("ignore")
+
+logger = logging.getLogger(__name__)
 
 
 def parse_args():
@@ -55,16 +54,9 @@ def training(local_rank, cfg, args):
     tokenizer = build_tokenizer(cfg)
     cfg.embedding_length = len(tokenizer)
     cfg.pad_token_id = tokenizer.pad_token_id
-    cfg.eos_token_id = (
-        tokenizer.eos_token_id if tokenizer.eos_token_id else tokenizer.sep_token_id
-    )
-    cfg.decoder_start_token_id = (
-        tokenizer.bos_token_id
-        if tokenizer.bos_token_id
-        else tokenizer.cls_token_id
-        if tokenizer.cls_token_id
-        else tokenizer.pad_token_id
-    )
+    cfg.eos_token_id = tokenizer.sep_token_id
+    cfg.bos_token_id = tokenizer.cls_token_id
+    cfg.decoder_start_token_id = cfg.bos_token_id
     logger.info(
         f"Tokenizer special tokens: \npad_token: {tokenizer.decode(cfg.pad_token_id)} - {cfg.pad_token_id}\n"
         f"eos_token: {tokenizer.decode(cfg.eos_token_id)} - {cfg.eos_token_id}\n"
@@ -77,19 +69,23 @@ def training(local_rank, cfg, args):
     if args.resume_from is not None:
         cfg.resume_from = args.resume_from
         logger.info(f"Resuming model from '{cfg.resume_from}'")
+
     model = build_generator_model(cfg)
 
     optimizer = build_optimizer(model, cfg.optimizer)
 
-    lr_scheduler = build_lr_scheduler(
-        optimizer,
-        cfg.scheduler.peak_lr,
-        cfg.scheduler.num_warmup_epochs,
-        cfg.train.num_epochs,
-        cfg.train.get("epoch_length", len(train_dataset)),
-    )
+    # lr_scheduler = build_lr_scheduler(
+    #     optimizer,
+    #     cfg.scheduler.peak_lr,
+    #     cfg.scheduler.num_warmup_epochs,
+    #     cfg.train.num_epochs,
+    #     cfg.train.get("epoch_length", len(train_dataset)),
+    # )
+
+    lr_scheduler = None
+
     trainer = create_trainer(
-        cfg, model, optimizer, lr_scheduler, train_dataloader.sampler, logger
+        cfg, model, optimizer, lr_scheduler, train_dataloader.sampler, logger, tokenizer
     )
 
     best_model_handler = partial(
@@ -99,34 +95,38 @@ def training(local_rank, cfg, args):
         filename_prefix="best",
         n_saved=2,
         global_step_transform=global_step_from_engine(trainer),
-        # score_name="val_bleu",
-        # score_function=Checkpoint.get_default_score_fn("bleu"),
     )
 
     if not args.no_validate:
         val_dataset = build_dataset(cfg, "val", tokenizer)
         val_dataloader = get_dataloader(cfg, "val", val_dataset)
 
-        evaluator = create_evaluator(cfg, model, tokenizer, logger)
-        # best_model_handler = best_model_handler(
-        #     score_name="val_bleu",
-        #     score_function=Checkpoint.get_default_score_fn("bleu"),
-        # )
-        evaluator.add_event_handler(Events.COMPLETED, best_model_handler())
+        metrics = {
+            "bleu": Bleu(ngram=4, smooth="smooth1", average="micro"),
+            "bleu_smooth_2": Bleu(ngram=4, smooth="smooth2", average="micro"),
+        }
 
-        @trainer.on(Events.EPOCH_COMPLETED(every=1))
+        sample_save_path = Path(cfg.work_dir, "samples").resolve()
+        mkdir_or_exist(sample_save_path)
+        evaluator = create_evaluator(
+            cfg, model, tokenizer, metrics, logger, sample_save_path
+        )
+        best_model_handler = best_model_handler(
+            score_name="val_bleu",
+            score_function=Checkpoint.get_default_score_fn("bleu"),
+        )
+        evaluator.add_event_handler(Events.COMPLETED, best_model_handler)
+
+        @trainer.on(Events.EPOCH_COMPLETED(every=cfg.train.validation_interval))
         def run_validation():
             epoch = trainer.state.epoch
+            evaluator.state.trainer_epoch = epoch
             state = evaluator.run(val_dataloader)
             log_metrics(
-                logger, state.times["COMPLETED"], "Validation", state.output, epoch
+                logger, state.times["COMPLETED"], "Validation", state.metrics, epoch
             )
 
     else:
-        # best_model_handler = best_model_handler(
-        #     score_name="train_loss",
-        #     score_function=Checkpoint.get_default_score_fn("batch loss"),
-        # )
         trainer.add_event_handler(Events.COMPLETED, best_model_handler())
 
     if rank == 0:
@@ -142,7 +142,9 @@ def training(local_rank, cfg, args):
             epoch_length=cfg.train.get("epoch_length", None),
         )
     except Exception as e:
-        logger.exception("")
+        logger.exception(
+            "An unexpected error occurred when trying to run the process function."
+        )
         raise e
 
     if rank == 0:

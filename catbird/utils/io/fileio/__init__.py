@@ -1,7 +1,7 @@
 """Import facility for 'fileio' classes and functions."""
 
-from .io import load, dump
-from .handlers import BaseFileHandler, JsonHandler, YamlHandler, PickleHandler
+from .handlers import BaseFileHandler, JsonHandler, PickleHandler, YamlHandler
+from .io import dump, load
 
 __all__ = [
     "load",

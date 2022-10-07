@@ -1,7 +1,7 @@
 import unittest
 
 import torch
-from catbird.core import Config
+from catbird.utils import Config
 from catbird.datasets import build_dataset, get_dataloader
 from catbird.tokenizers import build_tokenizer
 import copy

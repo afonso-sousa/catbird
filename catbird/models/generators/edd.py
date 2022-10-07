@@ -1,3 +1,5 @@
+from torch import nn
+
 from catbird.models.losses import pair_wise_loss
 
 from ..builder import build_discriminator
@@ -14,20 +16,52 @@ class EDD(EncoderDecoderBase):
     using Sequential Pair-wise Discriminator <https://aclanthology.org/C18-1230/>`.
     """
 
-    def __init__(self, decoder_start_token_id, encoder, decoder, discriminator):
-        super(EDD, self).__init__(decoder_start_token_id, encoder, decoder)
+    def __init__(
+        self,
+        pad_token_id,
+        eos_token_id,
+        decoder_start_token_id,
+        encoder,
+        decoder,
+        discriminator,
+    ):
+        super(EDD, self).__init__(
+            pad_token_id, eos_token_id, decoder_start_token_id, encoder, decoder
+        )
         self.discriminator = build_discriminator(discriminator)
 
-    def forward(self, input_ids, prev_output_tokens, tgt, return_loss=True, **kwargs):
-        state = self.encoder(input_ids)
-        decoder_out, _ = self.decoder(prev_output_tokens, state=state)
-        discriminated_out, discriminated_tgt = self.discriminator(decoder_out, tgt)
-        if return_loss:
-            return self.loss(decoder_out, tgt, discriminated_out, discriminated_tgt)
-        else:
-            return decoder_out
+    def forward(
+        self,
+        input_ids,
+        labels=None,
+        decoder_input_ids=None,
+        incremental_state=None,
+        **kwargs
+    ):
+        if (labels is not None) and (decoder_input_ids is None):
+            decoder_input_ids = labels
 
-    def loss(self, out, tgt, discriminated_out, discriminated_tgt):
-        cel_loss = super().loss(out, tgt)
+        if (labels is None) and (decoder_input_ids is None):
+            decoder_input_ids = input_ids
+
+        encoder_outputs = self.encoder(input_ids=input_ids, **kwargs)
+
+        decoder_outputs = self.decoder(
+            input_ids=decoder_input_ids,
+            encoder_out=encoder_outputs,
+            incremental_state=incremental_state,
+            **kwargs,
+        )
+        discriminated_out, discriminated_tgt = self.discriminator(
+            decoder_outputs[0], labels
+        )
+        loss = self.loss(
+            decoder_outputs[0], labels, discriminated_out, discriminated_tgt
+        )
+        return (loss,) + decoder_outputs
+
+    def loss(self, logits, tgt, discriminated_out, discriminated_tgt):
+        loss_fct = nn.CrossEntropyLoss(ignore_index=self.pad_token_id)
+        loss = loss_fct(logits.reshape(-1, logits.shape[-1]), tgt.reshape(-1))
         pwd_loss = pair_wise_loss(discriminated_out, discriminated_tgt)
-        return cel_loss + pwd_loss
+        return loss + pwd_loss

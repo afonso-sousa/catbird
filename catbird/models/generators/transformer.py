@@ -1,5 +1,5 @@
 import torch
-import torch.nn as nn
+
 from catbird.models.generators.base import EncoderDecoderBase
 
 from ..registry import GENERATORS
@@ -32,7 +32,6 @@ class VanillaTransformer(EncoderDecoderBase):
         # loss = loss_fn(output.reshape(-1, output.shape[-1]), labels[1:, :].reshape(-1))
 
         return self.loss(output, labels), output
-
 
     def generate(self, input_ids, **kwargs):
         input_ids = input_ids.t()

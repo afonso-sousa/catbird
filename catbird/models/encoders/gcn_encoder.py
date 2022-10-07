@@ -3,12 +3,10 @@ from torch_geometric.nn import GCNConv, global_add_pool
 
 from ..registry import GRAPH_ENCODERS
 
+
 @GRAPH_ENCODERS.register_module
 class GCNEncoder(nn.Module):
-    def __init__(self,
-                 num_features,
-                 hidden_size,
-                 dropout=0):
+    def __init__(self, num_features, hidden_size, dropout=0):
         super().__init__()
         self.conv1 = GCNConv(num_features, hidden_size)
         self.conv2 = GCNConv(hidden_size, hidden_size)

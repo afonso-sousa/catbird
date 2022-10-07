@@ -3,7 +3,7 @@ import os.path as osp
 import tempfile
 
 import pytest
-from catbird.core import dump, load
+from catbird.utils import dump, load
 
 
 def _test_handler(file_format, test_obj, str_checker, mode="r+"):
@@ -80,4 +80,3 @@ def test_exception():
 
     with pytest.raises(TypeError):
         dump(test_obj, "tmp.txt")
-

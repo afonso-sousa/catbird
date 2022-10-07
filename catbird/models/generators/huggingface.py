@@ -1,10 +1,9 @@
 import ignite.distributed as idist
-import torch
 from torch import nn
 from transformers import T5ForConditionalGeneration
 
-from ..registry import GENERATORS
 from ..modules import freeze_params
+from ..registry import GENERATORS
 
 
 @GENERATORS.register_module

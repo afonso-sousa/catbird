@@ -16,12 +16,12 @@ def pair_wise_loss(src_feats: torch.Tensor, tgt_feats: torch.Tensor) -> torch.Te
     """
     src_feats = src_feats.squeeze(0)
     tgt_feats = tgt_feats.squeeze(0)
-    
+
     batch_size = src_feats.size(0)
 
     a = torch.mm(src_feats, tgt_feats.t())
     b = torch.sum(src_feats * tgt_feats, 1)
     c = a - b + 1
-    loss = torch.sum(torch.clamp(c, min=0.0)) / batch_size ** 2
+    loss = torch.sum(torch.clamp(c, min=0.0)) / batch_size**2
 
     return loss

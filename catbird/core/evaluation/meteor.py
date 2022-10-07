@@ -22,7 +22,8 @@ class Meteor(Metric):
 
         Args:
             output_transform (Callable, optional): a callable required by the Ignite framework. Defaults to lambdax:x.
-            device (Union[str, torch.device], optional): specifies which device updates are accumulated on. Defaults to torch.device("cpu").
+            device (Union[str, torch.device], optional): specifies which device updates are accumulated on. Defaults
+            to torch.device("cpu").
         """
         super(Meteor, self).__init__(output_transform=output_transform, device=device)
         self._meteor = load_metric("meteor")

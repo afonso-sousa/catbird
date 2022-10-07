@@ -1,5 +1,6 @@
 import math
-from torch import nn, Tensor
+
+from torch import Tensor, nn
 
 
 class TokenEmbedding(nn.Module):

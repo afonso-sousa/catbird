@@ -1,17 +1,15 @@
-"""Factory to build models."""
-from importlib import import_module
-
 import ignite.distributed as idist
 import torch
-from catbird.core import Config  # type: ignore
-from catbird.core import build_from_cfg
 from ignite.handlers import Checkpoint
 from ignite.utils import setup_logger
 from torch import nn
 
+from catbird.utils import Config  # type: ignore
+from catbird.utils import build_from_cfg
+
+from .modules import freeze_params
 from .registry import (DECODERS, DISCRIMINATORS, ENCODERS, GENERATORS,
                        GRAPH_ENCODERS)
-from .modules import freeze_params
 
 
 def build(cfg, registry, default_args=None):
@@ -63,7 +61,7 @@ def build_generator_model(cfg: Config) -> nn.Module:
 def build_generator(cfg):
     model = build(cfg, GENERATORS)
     if cfg.freeze_encoder:
-        freeze_params(model.get_encoder())    
+        freeze_params(model.get_encoder())
 
     return idist.auto_model(model)
 

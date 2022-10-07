@@ -1,10 +1,9 @@
 """File for general input-output handling."""
 
 from pathlib import Path
-from typing import Any, Optional, IO, Union
+from typing import IO, Any, Optional, Union
 
-from .handlers import JsonHandler, YamlHandler, PickleHandler, BaseFileHandler
-
+from .handlers import BaseFileHandler, JsonHandler, PickleHandler, YamlHandler
 
 file_handlers = {
     "json": JsonHandler(),

@@ -1,14 +1,15 @@
 """Define Torch Dataset for Quora Questions Pairs corpus."""
 
+from functools import partial
 from typing import Dict, List
 
 import torch
-from catbird.core import Config  # type: ignore
 from transformers import AutoTokenizer
-from functools import partial
 
-from .utils import build_levi_graph
+from catbird.utils import Config  # type: ignore
+
 from .sentence_pair_dataset import SentencePairDataset
+from .utils import build_levi_graph
 
 
 class GraphSentPairDataset(SentencePairDataset):
@@ -38,8 +39,10 @@ class GraphSentPairDataset(SentencePairDataset):
             dict[str, torch.Tensor]: dictionary with src and target sentences as embedding tensors
         """
         batch = super().__getitem__(idx)
-        
-        tokenizer = partial(self.tokenizer, max_length=16, padding="max_length", truncation=True)
+
+        tokenizer = partial(
+            self.tokenizer, max_length=16, padding="max_length", truncation=True
+        )
         batch["ie_graph"] = build_levi_graph(self.graph[idx], tokenizer)
 
         return batch

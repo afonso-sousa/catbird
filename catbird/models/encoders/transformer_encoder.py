@@ -1,10 +1,7 @@
-import math
-from typing import Dict, List, Optional
-
 import torch
-from torch import nn, Tensor
-from ..modules import PositionalEmbedding, TokenEmbedding
+from torch import Tensor, nn
 
+from ..modules import PositionalEmbedding, TokenEmbedding
 from ..registry import ENCODERS
 
 
@@ -37,7 +34,7 @@ class TransformerEncoder(nn.Module):
         super(TransformerEncoder, self).__init__()
         self.vocab_size = vocab_size
         self.pad_token_id = pad_token_id
-        
+
         self.embedding_size = embedding_size
         self.num_heads = num_heads
         self.num_layers = num_layers
@@ -46,7 +43,12 @@ class TransformerEncoder(nn.Module):
         self.embed_tokens = TokenEmbedding(vocab_size, embedding_size)
         self.embed_positions = PositionalEmbedding(embedding_size, dropout=dropout)
 
-        encoder_layer = nn.TransformerEncoderLayer(embedding_size, num_heads, ffnn_size, dropout,)
+        encoder_layer = nn.TransformerEncoderLayer(
+            embedding_size,
+            num_heads,
+            ffnn_size,
+            dropout,
+        )
         encoder_norm = nn.LayerNorm(embedding_size)
         self.encoder = nn.TransformerEncoder(encoder_layer, num_layers, encoder_norm)
 

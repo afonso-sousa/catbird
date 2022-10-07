@@ -1,22 +1,21 @@
 """Main methods for model training and evaluation."""
 
 import random
-from importlib import import_module
 from logging import Logger
-from typing import Optional, Union
+from pathlib import Path
+from typing import Dict, Optional, Union
 
 import ignite.distributed as idist
 import torch
-import torch.nn.functional as F
-from catbird.core import Config  # type: ignore
-from catbird.models.generators.base import EncoderDecoderBase
 from ignite.contrib.engines import common
 from ignite.engine import Engine
+from nltk import word_tokenize
 from torch import nn, optim
 from torch.cuda.amp import GradScaler, autocast
-from torch.nn import CrossEntropyLoss
 from torch.utils.data.distributed import DistributedSampler
 from transformers import AutoTokenizer
+
+from catbird.utils import Config, fopen
 
 
 def default_train_step(
@@ -25,6 +24,7 @@ def default_train_step(
     optimizer: optim.Optimizer,
     device: Union[str, torch.device],
     scaler: GradScaler,
+    tokenizer,
 ):
     """Decorate train step to add more parameters.
 
@@ -49,15 +49,17 @@ def default_train_step(
         labels = batch["labels"]
 
         with autocast(enabled=with_amp):
-            if isinstance(model, EncoderDecoderBase):
-                loss = model(input_ids=input_ids, labels=labels)[0]
-            else:
-                loss = model(input_ids=input_ids, attention_mask=batch["attention_mask"], tgt=labels)
-                
+            # if isinstance(model, EncoderDecoderBase):
+            #     loss = model(input_ids=input_ids, labels=labels)[0]
+            # else:
+            #     loss = model(
+            #         input_ids=input_ids,
+            #         attention_mask=batch["attention_mask"],
+            #         tgt=labels,
+            #     )
+            loss = model(input_ids=input_ids, labels=labels)[0]
+
             loss /= accumulation_steps
-        # optimizer.zero_grad()
-        # loss.backward(retain_graph=False)
-        # optimizer.step()
 
         scaler.scale(loss).backward()
 
@@ -72,7 +74,7 @@ def default_train_step(
 
 
 def default_evaluate_step(
-    cfg: Config, model: nn.Module, tokenizer, logger,
+    cfg: Config, model: nn.Module, tokenizer, logger, sample_save_path
 ):
     """Decorate evaluate step to add more parameters.
 
@@ -90,6 +92,7 @@ def default_evaluate_step(
 
     @torch.no_grad()
     def routine(engine, batch):
+
         model.eval()
 
         device = idist.device()
@@ -99,37 +102,44 @@ def default_evaluate_step(
         input_ids = batch["input_ids"]
         labels = batch["labels"]
 
-        labels = torch.where(labels != -100, labels, cfg.pad_token_id)
-
-        idx = random.randint(0, len(batch) - 1)
-        print("IDX " + str(idx))
-
         y_pred = model.generate(input_ids)
 
         src_ids_text = ids_to_clean_text(input_ids)
-        preds = ids_to_clean_text(y_pred)
+        preds_text = ids_to_clean_text(y_pred)
         tgt_text = ids_to_clean_text(labels)
 
-        src_ids_text = [_src.split() for _src in src_ids_text]
-        preds = [_preds.split() for _preds in preds]
-        tgt_text = [_tgt.split() for _tgt in tgt_text]
+        # Torch Ignite metrics expect a list of hypotheses and a list of lists of references
+        src = [word_tokenize(_src) for _src in src_ids_text]
+        preds = [word_tokenize(_preds) for _preds in preds_text]
+        tgt = [[word_tokenize(_tgt)] for _tgt in tgt_text]
 
-        logger.info(
+        # if engine.state.iteration % cfg.test.print_output_every == 0:
+        idx = random.randint(0, len(batch) - 1)
+        output_info = (
             "\n"
-            f"Source: {' '.join(src_ids_text[0])}\n"
-            f"Preds: {' '.join(preds[0])}\n"
-            f"Target: {' '.join(tgt_text[0])}\n"
+            f"Random batch sample #{idx}\n"
+            f"Source: {' '.join(src[idx])}\n"
+            f"Preds: {' '.join(preds[idx])}\n"
+            f"Target: {' '.join(tgt[idx][0])}\n"
         )
 
-        if isinstance(model, EncoderDecoderBase):
-            loss = model(input_ids=input_ids, labels=labels)[0]
-        else:
-            loss = model(input_ids=input_ids, attention_mask=batch["attention_mask"], tgt=labels)
+        logger.info(output_info)
+        f = fopen(
+            Path(sample_save_path)
+            / f"samples__{engine.state.trainer_epoch}_{engine.state.iteration}.txt",
+            mode="w",
+        )
+        f.write(output_info)
+        f.close()
+
+        # if isinstance(model, EncoderDecoderBase):
+        #     loss = model(input_ids=input_ids, labels=labels)[0]
+        # else:
+        #     loss = model(input_ids=input_ids, attention_mask=batch["attention_mask"], tgt=labels)
 
         return {
-            "loss": loss.item(),
-            # "nll": nll.item(),
-            # "accuracy": accuracy.view(1, 1).item(),
+            "y_pred": preds,
+            "y": tgt,
         }
 
     return routine
@@ -142,6 +152,7 @@ def create_trainer(
     lr_scheduler: optim.lr_scheduler,
     train_sampler: Optional[DistributedSampler],
     logger: Logger,
+    tokenizer,
 ) -> Engine:
     """Create a training step for the given model.
 
@@ -159,7 +170,7 @@ def create_trainer(
     device = idist.device()
     scaler = GradScaler(enabled=cfg.train.with_amp)
 
-    train_step = default_train_step(cfg, model, optimizer, device, scaler)
+    train_step = default_train_step(cfg, model, optimizer, device, scaler, tokenizer)
 
     trainer = Engine(train_step)
     trainer.logger = logger
@@ -178,7 +189,12 @@ def create_trainer(
 
 
 def create_evaluator(
-    cfg: Config, model: nn.Module, tokenizer: AutoTokenizer, logger: Logger,
+    cfg: Config,
+    model: nn.Module,
+    tokenizer: AutoTokenizer,
+    metrics: Dict,
+    logger: Logger,
+    sample_save_path,
 ) -> Engine:
     """Create an evaluation step for the given model.
 
@@ -192,8 +208,13 @@ def create_evaluator(
     Returns:
         Engine: Object to run the defined evaluation step over each batch of a dataset.
     """
-    evaluate_step = default_evaluate_step(cfg, model, tokenizer, logger)
+    evaluate_step = default_evaluate_step(
+        cfg, model, tokenizer, logger, sample_save_path
+    )
 
     evaluator = Engine(evaluate_step)
+
+    for name, metric in metrics.items():
+        metric.attach(evaluator, name)
 
     return evaluator

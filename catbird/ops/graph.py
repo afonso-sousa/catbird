@@ -1,6 +1,6 @@
-from stanza.server import CoreNLPClient
-from sentence_transformers import SentenceTransformer
 import torch
+from sentence_transformers import SentenceTransformer
+from stanza.server import CoreNLPClient
 from torch import nn
 
 
@@ -27,9 +27,9 @@ def extract_triples(text, annotators=["openie"], properties={}):
 
 def build_graph_from_triples(triples):
     from torch_geometric.data import Data
-    
+
     # TODO remove sentence encoding from this method
-    model = SentenceTransformer('all-MiniLM-L6-v2')
+    model = SentenceTransformer("all-MiniLM-L6-v2")
     # triples is list of dictionaries
     nodes = set()
     src_edges = []
@@ -49,29 +49,26 @@ def build_graph_from_triples(triples):
     edge_index = torch.tensor([src_edges, trg_edges], dtype=torch.long)
 
     graph = Data(x=x, edge_index=edge_index)
-    
+
     return graph
 
 
-
 class IETripleGraph(nn.Module):
-
-    def __init__(self,
-                 coref=True):
+    def __init__(self, coref=True):
         super(IETripleGraph, self).__init__()
         if coref:
-            self.annotators=[
-            "tokenize",
-            "ssplit",
-            "pos",
-            "lemma",
-            "depparse",
-            "ner",
-            "coref",
-            "natlog",
-            "openie",
+            self.annotators = [
+                "tokenize",
+                "ssplit",
+                "pos",
+                "lemma",
+                "depparse",
+                "ner",
+                "coref",
+                "natlog",
+                "openie",
             ]
-            self.properties={"openie.resolve_coref": True}
+            self.properties = {"openie.resolve_coref": True}
         else:
-            self.annotators=["openie"]
-            self.properties={}
+            self.annotators = ["openie"]
+            self.properties = {}

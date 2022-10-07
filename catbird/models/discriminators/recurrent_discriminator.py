@@ -2,8 +2,8 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
-from ..registry import DISCRIMINATORS
 from ..modules import RecurrentLayer
+from ..registry import DISCRIMINATORS
 
 
 @DISCRIMINATORS.register_module
@@ -35,11 +35,11 @@ class RecurrentDiscriminator(nn.Module):
         #     embedding_dim=embedding_size,
         #     padding_idx=self.pad_token_id,
         # )
-        self.embeddings = nn.Sequential(
+        self.embed_tokens = nn.Sequential(
             nn.Linear(self.vocab_size, hidden_size),
-            nn.Threshold(0.000001, 0),
+            nn.Threshold(1e-6, 0),
             nn.Linear(hidden_size, embedding_size),
-            nn.Threshold(0.000001, 0),
+            nn.Threshold(1e-6, 0),
         )
         self.rnn = RecurrentLayer(
             mode,
@@ -47,7 +47,7 @@ class RecurrentDiscriminator(nn.Module):
             hidden_size,
             num_layers=num_layers,
             bias=bias,
-            batch_first=True,
+            batch_first=False,
             residual=residual,
             dropout=dropout,
             bidirectional=bidirectional,
@@ -59,12 +59,18 @@ class RecurrentDiscriminator(nn.Module):
         self.fc_out = nn.Linear(hidden_size, out_size)
 
     def forward(self, decoder_out, tgt):
-        x = self.embeddings(torch.exp(decoder_out))
+        x = F.softmax(decoder_out, dim=-1)
+        x = self.embed_tokens(x)
+        # B x T x H -> T x B x H
+        x = x.transpose(0, 1)
         _, hidden_t = self.rnn(x)
-        encoded_out = self.fc_out(hidden_t)
+        encoded_out = self.fc_out(hidden_t)  # 1, B, H
 
-        x = self.embeddings(F.one_hot(tgt, self.vocab_size))
+        x = self.embed_tokens(F.one_hot(tgt, self.vocab_size).to(torch.float32))
+
+        # B x T x H -> T x B x H
+        x = x.transpose(0, 1)
         _, hidden_t = self.rnn(x)
         encoded_tgt = self.fc_out(hidden_t)
 
-        return encoded_out, encoded_tgt
+        return encoded_out.squeeze_(0), encoded_tgt.squeeze_(0)

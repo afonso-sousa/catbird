@@ -4,7 +4,7 @@ import inspect
 import ignite.distributed as idist
 import torch
 
-from ..utils import Registry, build_from_cfg
+from catbird.utils import Registry, build_from_cfg
 
 OPTIMIZERS = Registry("optimizer")
 OPTIMIZER_BUILDERS = Registry("optimizer builder")

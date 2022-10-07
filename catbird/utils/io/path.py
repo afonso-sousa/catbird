@@ -1,8 +1,8 @@
 """File for general path handling."""
 
+from os import PathLike
 from pathlib import Path
 from typing import Any, TextIO, Union
-from os import PathLike
 
 
 def fopen(filepath: Union[str, bytes, PathLike], *args: Any, **kwargs: Any) -> TextIO:

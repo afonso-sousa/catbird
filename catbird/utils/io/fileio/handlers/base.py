@@ -1,6 +1,6 @@
 from abc import ABCMeta, abstractmethod
-from typing import Any, IO, Union
 from os import PathLike
+from typing import IO, Any, Union
 
 
 class BaseFileHandler:

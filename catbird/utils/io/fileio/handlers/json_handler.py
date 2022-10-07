@@ -1,6 +1,6 @@
 import json
-from typing import Any, IO, Union
 from os import PathLike
+from typing import IO, Any, Union
 
 from .base import BaseFileHandler
 
