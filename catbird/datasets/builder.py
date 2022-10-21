@@ -33,13 +33,13 @@ def build_dataset(cfg: Config, split: str, tokenizer: AutoTokenizer) -> Tuple[Da
     # [logger.info(f"{k} - {v}") for k, v in cfg.data.items()]
 
     if cfg.dataset_name.lower() in ["quora", "mscoco"]:
-        data = load(Path(cfg.data_root) / f"{cfg.dataset_name.lower()}_{split}.pkl")
-        if cfg.data.get("use_ie_graph", False):
-            graph = load(
-                Path(cfg.data_root) / f"{cfg.dataset_name.lower()}_triples_{split}.pkl"
+        if cfg.data.get("with_dep", False):
+            data = load(
+                Path(cfg.data_root) / f"{cfg.dataset_name.lower()}_with_dp_{split}.pkl"
             )
-            dataset = GraphSentPairDataset(cfg, split, data, tokenizer, graph)
+            dataset = GraphSentPairDataset(cfg, split, data, tokenizer)
         else:
+            data = load(Path(cfg.data_root) / f"{cfg.dataset_name.lower()}_{split}.pkl")
             dataset = SentencePairDataset(cfg, split, data, tokenizer)
         return dataset
     else:
@@ -59,7 +59,7 @@ def get_dataloader(cfg: Config, split: str, dataset: Dataset) -> DataLoader:
     Returns:
         DataLoader: tuple with train or train and validation dataloaders
     """
-    if cfg.data.get("use_ie_graph", False):
+    if cfg.data.get("with_dep", False):
         from torch_geometric.loader import DataLoader as PyGDataLoader
 
         loader = PyGDataLoader(

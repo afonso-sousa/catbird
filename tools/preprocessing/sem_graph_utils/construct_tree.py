@@ -1,31 +1,60 @@
 from typing import Final, List
 import nltk
-from nltk.tokenize import word_tokenize
+
 nltk.download("punkt")
 
+# Penn TreeBank POS
+verb_pos: Final[List[str]] = [
+    "VBZ",  # Verb, 3rd person singular present
+    "VBN",  # Verb, past participle
+    "VBD",  # Verb, past tense
+    "VBP",  # Verb, non-3rd person singular present
+    "VB",  # Verb, base form
+    "VBG",  # Verb, gerund or present participle
+]
+prep_pos: Final[List[str]] = [
+    "PP",  # Prepositional Phrase
+    "IN",  # Preposition or subordinating conjunction
+    "TO",  # to
+]
+modifier_pos: Final[List[str]] = [
+    "JJ",  # Adjective
+    "FW",  # Foreign word
+    "JJR",  # Adjective, comparative
+    "JJS",  # Adjective, superlative
+    "RB",  # Adverb
+    "RBR",  # Adverb, comparative
+    "RBS",  # Adverb, superlative
+]
 
-verb_pos: Final[List[str]] = ["VBZ", "VBN", "VBD", "VBP", "VB", "VBG"]
-prep_pos: Final[List[str]] = ["PP", "IN", "TO"]
-subj_and_obj: Final[List[str]] = ["nsubj", "nsubjpass", "csubj", "csubjpass"] + ["dobj", "pobj", "iobj"]
+# Stanford typed dependencies
+subj_and_obj: Final[List[str]] = [
+    "nsubj",  # nominal subject
+    "nsubjpass",  # passive nominal subject
+    "csubj",  # clausal subject
+    "csubjpass",  # clausal passive subject
+    "dobj",  # direct object
+    "pobj",  # object of a preposition
+    "iobj",  # indirect object
+]
 conj: Final[List[str]] = ["conj", "parataxis"]
-modifier_pos: Final[List[str]] = ["JJ", "FW", "JJR", "JJS", "RB", "RBR", "RBS"]
 modifiers: Final[List[str]] = [
-    "amod",
-    "nn",
-    "mwe",
-    "advmod",
-    "quantmod",
-    "npadvmod",
-    "advcl",
-    "poss",
-    "possessive",
-    "neg",
-    "auxpass",
-    "aux",
-    "det",
-    "dep",
-    "predet",
-    "num",
+    "amod",  # adjectival modifier
+    "nn",  # noun compound modifier
+    "mwe",  # multi-word expression
+    "advmod",  # adverbial modifier
+    "quantmod",  # quantifier phrase modifier
+    "npadvmod",  # noun phrase as adverbial modifier
+    "advcl",  # adverbial clause modifier
+    "poss",  # possession modifier
+    "possessive",  # possessive modifier
+    "neg",  # negation modifier
+    "auxpass",  # passive auxiliary
+    "aux",  # auxiliary
+    "det",  # determiner
+    "dep",  # unspecified dependency
+    "predet",  # predeterminer
+    "num",  # numeric modifier
 ]
 
 
@@ -108,14 +137,13 @@ def _build_detailed_tree(sequence, all_dep, root, word_type):
     return node
 
 
-def build_tree(sample):
-    dep, sequence = sample["src_dp"], word_tokenize(sample["src"])
-    root = [i for i in range(len(dep)) if dep[i]["head"] == -1]
-    heads_dep = [w["dep"] for w in dep if w["head"] == root[0]]
+def build_tree(dep_parse, sequence):
+    root = [i for i in range(len(dep_parse)) if dep_parse[i]["head"] == -1]
+    heads_dep = [w["dep"] for w in dep_parse if w["head"] == root[0]]
 
     word_type = (
-        "V" if dep[root[0]]["pos"] in verb_pos or "cop" not in heads_dep else "A"
+        "V" if dep_parse[root[0]]["pos"] in verb_pos or "cop" not in heads_dep else "A"
     )
-    tree = _build_detailed_tree(sequence, dep, root[0], word_type)
+    tree = _build_detailed_tree(sequence, dep_parse, root[0], word_type)
 
-    return {"words": sequence, "tree": tree}
+    return tree

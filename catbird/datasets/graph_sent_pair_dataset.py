@@ -6,17 +6,17 @@ from typing import Dict, List
 import torch
 from transformers import AutoTokenizer
 
-from catbird.utils import Config  # type: ignore
+from catbird.utils import Config
 
 from .sentence_pair_dataset import SentencePairDataset
-from .utils import build_levi_graph
+from .graph_utils import build_levi_graph
 
 
 class GraphSentPairDataset(SentencePairDataset):
     """Torch Dataset class to process sentence pair datasets."""
 
     def __init__(
-        self, cfg: Config, split: str, data: List, tokenizer: AutoTokenizer, graph: List
+        self, cfg: Config, split: str, data: List, tokenizer: AutoTokenizer
     ) -> None:
         """Initialize attributes of the class.
 
@@ -27,7 +27,15 @@ class GraphSentPairDataset(SentencePairDataset):
             tokenizer (AutoTokenizer): AutoTokenizer instance from HuggingFace
         """
         super(GraphSentPairDataset, self).__init__(cfg, split, data, tokenizer)
-        self.graph = graph
+        self.all_dependencies = list(
+            set(token["dep"] for sample in data for token in sample["src_dp"])
+        )
+        self.all_pos = list(
+            set(token["pos"] for sample in data for token in sample["src_dp"])
+        )
+        self.num_relations = len(self.all_dependencies)
+
+        self.tokenizer = tokenizer
 
     def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
         """Get dataset record in index.
@@ -40,9 +48,15 @@ class GraphSentPairDataset(SentencePairDataset):
         """
         batch = super().__getitem__(idx)
 
-        tokenizer = partial(
-            self.tokenizer, max_length=16, padding="max_length", truncation=True
+        # tokenizer = partial(
+        #     self.tokenizer, max_length=16, padding="max_length", truncation=True
+        # )
+        # batch["graph"] = build_dependency_structure(
+        #     self.data[idx], self.all_dependencies, self.all_pos, self.tokenizer
+        # )
+
+        batch["graph"] = build_levi_graph(
+            self.data[idx], self.all_dependencies, self.all_pos, self.tokenizer
         )
-        batch["ie_graph"] = build_levi_graph(self.graph[idx], tokenizer)
 
         return batch

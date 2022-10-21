@@ -53,6 +53,10 @@ def training(local_rank, cfg, args):
 
     tokenizer = build_tokenizer(cfg)
     cfg.embedding_length = len(tokenizer)
+
+    # print(tokenizer.convert_ids_to_tokens(list(range(len(tokenizer)))))
+    # assert False
+
     cfg.pad_token_id = tokenizer.pad_token_id
     cfg.eos_token_id = tokenizer.sep_token_id
     cfg.bos_token_id = tokenizer.cls_token_id
@@ -69,6 +73,9 @@ def training(local_rank, cfg, args):
     if args.resume_from is not None:
         cfg.resume_from = args.resume_from
         logger.info(f"Resuming model from '{cfg.resume_from}'")
+
+    # if cfg.data.get("with_dep", False):
+    #     cfg.num_relations = len(train_dataset.all_pos)
 
     model = build_generator_model(cfg)
 

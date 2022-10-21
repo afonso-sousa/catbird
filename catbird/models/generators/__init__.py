@@ -1,12 +1,14 @@
 from .edd import EDD
 from .gcn_lstm import GCNLSTM
+from .rgat_lstm import RGATLSTM
 from .huggingface import HuggingFaceWrapper
-from .stack_res_lstm import StackedResidualLSTM
+from .recurrent import RecurrentModel
 from .transformer import VanillaTransformer
 
 __all__ = [
-    "StackedResidualLSTM",
+    "RecurrentModel",
     "GCNLSTM",
+    "RGATLSTM",
     "EDD",
     "HuggingFaceWrapper",
     "VanillaTransformer",

@@ -8,8 +8,7 @@ from catbird.utils import Config  # type: ignore
 from catbird.utils import build_from_cfg
 
 from .modules import freeze_params
-from .registry import (DECODERS, DISCRIMINATORS, ENCODERS, GENERATORS,
-                       GRAPH_ENCODERS)
+from .registry import DECODERS, DISCRIMINATORS, ENCODERS, GENERATORS, GRAPH_ENCODERS
 
 
 def build(cfg, registry, default_args=None):
@@ -41,6 +40,9 @@ def build_generator_model(cfg: Config) -> nn.Module:
         else:
             for key in cfg.model:
                 if key == "type":
+                    continue
+                if key == "graph_encoder":
+                    # cfg.model[key].num_relations = cfg.num_relations
                     continue
                 cfg.model[key].vocab_size = cfg.embedding_length
                 cfg.model[key].pad_token_id = cfg.pad_token_id

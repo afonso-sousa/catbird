@@ -1,35 +1,27 @@
+import spacy
 from tqdm import tqdm
-from allennlp.predictors.predictor import Predictor
-from typing import Final
 
 
-_dependency_parser_path: Final[
-    str
-] = "https://storage.googleapis.com/allennlp-public-models/biaffine-dependency-parser-ptb-2020.04.06.tar.gz"
-# "https://s3-us-west-2.amazonaws.com/allennlp/models/biaffine-dependency-parser-ptb-2018.08.23.tar.gz"
-
-
-def _get_dependency_structure(sentence, parser_path):
-    dep_parser = Predictor.from_path(parser_path)
-    sentence = dep_parser.predict(sentence=sentence)
-
-    words, pos, heads, dependencies = (
-        sentence["words"],
-        sentence["pos"],
-        sentence["predicted_heads"],
-        sentence["predicted_dependencies"],
-    )
-    result = [
-        {"word": w, "pos": p, "head": h - 1, "dep": d}
-        for w, p, h, d in zip(words, pos, heads, dependencies)
-    ]
-    return result
+def _get_dependency_structure(pipeline, sentence):
+    sent = pipeline(sentence)
+    src_dp = []
+    for token in sent:
+        dep_parse = {}
+        dep_parse["word"] = token.text
+        dep_parse["pos"] = token.pos_
+        dep_parse["head"] = token.head.i if token.head.i != token.i else -1
+        dep_parse["head_token"] = token.head.text
+        dep_parse["dep"] = token.dep_
+        src_dp.append(dep_parse)
+    return src_dp
 
 
 def get_data_with_dependency_tree(data):
+    pipeline = spacy.load("en_core_web_sm")
+
     dependency_sentences = [
         {
-            f"{k}_dp": _get_dependency_structure(sentence, _dependency_parser_path)
+            f"{k}_dp": _get_dependency_structure(pipeline, sentence)
             for k, sentence in sample.items()
         }
         for sample in tqdm(data, desc="Dependency Parsing: ")

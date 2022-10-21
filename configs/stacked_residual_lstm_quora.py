@@ -1,3 +1,7 @@
+"""This is an implementation of paper `Neural Paraphrase Generation
+    with Stacked Residual LSTM Networks <https://aclanthology.org/C16-1275/>`.
+"""
+
 # general config settings
 output_path = "./work_dirs"
 num_workers = 4
@@ -9,6 +13,7 @@ data = dict(
     max_length=40,
     train=dict(dataset_length=-1),
     val=dict(dataset_length=-1),
+    with_dep=True,
 )
 
 tokenizer = dict(name="roberta-base")
@@ -16,7 +21,7 @@ tokenizer = dict(name="roberta-base")
 # train settings
 train = dict(
     num_epochs=100,
-    batch_size=32,
+    batch_size=16,
     accumulation_steps=1,
     with_amp=False,
     epoch_length=None,
@@ -30,7 +35,7 @@ test = dict(
 
 # model settings
 model = dict(
-    type="StackedResidualLSTM",
+    type="RecurrentModel",
     encoder=dict(
         type="RecurrentEncoder",
         mode="LSTM",

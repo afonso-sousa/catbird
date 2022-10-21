@@ -11,7 +11,7 @@ class TestDatasets(unittest.TestCase):
         ##### Config #####
         cfg_dict = dict(
             model = dict(
-                type="StackedResidualLSTM",
+                type="RecurrentModel",
                 encoder=dict(
                     type="RecurrentEncoder",
                     mode="LSTM",

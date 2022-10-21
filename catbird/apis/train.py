@@ -57,7 +57,12 @@ def default_train_step(
             #         attention_mask=batch["attention_mask"],
             #         tgt=labels,
             #     )
-            loss = model(input_ids=input_ids, labels=labels)[0]
+            if cfg.data.get("with_dep", False):
+                loss = model(input_ids=input_ids, graph=batch["graph"], labels=labels)[
+                    0
+                ]
+            else:
+                loss = model(input_ids=input_ids, labels=labels)[0]
 
             loss /= accumulation_steps
 
@@ -102,7 +107,10 @@ def default_evaluate_step(
         input_ids = batch["input_ids"]
         labels = batch["labels"]
 
-        y_pred = model.generate(input_ids)
+        if cfg.data.get("with_dep", False):
+            y_pred = model.generate(input_ids, batch["graph"])
+        else:
+            y_pred = model.generate(input_ids)
 
         src_ids_text = ids_to_clean_text(input_ids)
         preds_text = ids_to_clean_text(y_pred)

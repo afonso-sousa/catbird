@@ -5,17 +5,13 @@ from torch.nn import functional as F
 from ..builder import build_decoder, build_encoder
 
 
-def shift_tokens_right(
-    input_ids: torch.Tensor, pad_token_id: int, decoder_start_token_id: int
-):
-    """
-    Shift input ids one token to the right.
-    """
-    shifted_input_ids = input_ids.new_zeros(input_ids.shape)
-    shifted_input_ids[:, 1:] = input_ids[:, :-1].clone()
-    shifted_input_ids[:, 0] = decoder_start_token_id
-
-    return shifted_input_ids
+# def shift_tokens_right(input_ids, pad_token_id):
+#     """Shift input ids one token to the right, and wrap the last non pad token (usually <eos>)."""
+#     prev_output_tokens = input_ids.clone()
+#     index_of_eos = (input_ids.ne(pad_token_id).sum(dim=1) - 1).unsqueeze(-1)
+#     prev_output_tokens[:, 0] = input_ids.gather(1, index_of_eos).squeeze()
+#     prev_output_tokens[:, 1:] = input_ids[:, :-1]
+#     return prev_output_tokens
 
 
 class EncoderDecoderBase(nn.Module):
@@ -29,6 +25,16 @@ class EncoderDecoderBase(nn.Module):
         self.encoder = build_encoder(encoder)
         self.decoder = build_decoder(decoder)
 
+    def shift_tokens_right(self, input_ids: torch.Tensor, decoder_start_token_id: int):
+        """
+        Shift input ids one token to the right.
+        """
+        shifted_input_ids = input_ids.new_zeros(input_ids.shape)
+        shifted_input_ids[:, 1:] = input_ids[:, :-1].clone()
+        shifted_input_ids[:, 0] = decoder_start_token_id
+
+        return shifted_input_ids
+
     def forward(
         self,
         input_ids,
@@ -39,10 +45,10 @@ class EncoderDecoderBase(nn.Module):
     ):
         if (labels is not None) and (decoder_input_ids is None):
             # print("Shifting labels for decoder input...")
-            # decoder_input_ids = shift_tokens_right(
-            #     labels, self.pad_token_id, self.decoder_start_token_id
-            # )
-            decoder_input_ids = labels[:, :-1].contiguous()
+            decoder_input_ids = self.shift_tokens_right(
+                labels, self.decoder_start_token_id
+            )
+            # decoder_input_ids = labels[:, :-1].contiguous()
 
         if (labels is None) and (decoder_input_ids is None):
             decoder_input_ids = input_ids
@@ -73,7 +79,8 @@ class EncoderDecoderBase(nn.Module):
         return self.decoder
 
     def loss(self, logits, labels):
-        targets = labels[:, 1:].contiguous()
+        # targets = labels[:, 1:].contiguous()
+        targets = labels
         loss_fct = nn.CrossEntropyLoss(ignore_index=self.pad_token_id)
         loss = loss_fct(logits.reshape(-1, logits.shape[-1]), targets.reshape(-1))
         return loss
@@ -111,6 +118,7 @@ class EncoderDecoderBase(nn.Module):
     def generate(
         self,
         input_ids,
+        graph=None,
         num_beams=1,
         max_length=50,
         min_length=1,
@@ -124,6 +132,8 @@ class EncoderDecoderBase(nn.Module):
         batch_size = input_ids.shape[0]
 
         encoder_outs = self.encoder(input_ids)
+        if graph:
+            graph_embeddings = self.graph_encoder(graph)
 
         input_ids = torch.full(
             (batch_size, 1),
@@ -155,6 +165,7 @@ class EncoderDecoderBase(nn.Module):
                 top_p=top_p,
                 batch_size=effective_batch_size,
                 encoder_outputs=encoder_outs,
+                graph_embeddings=graph_embeddings,
                 attention_mask=None,
             )
 
@@ -172,6 +183,7 @@ class EncoderDecoderBase(nn.Module):
         top_p,
         batch_size,
         encoder_outputs,
+        graph_embeddings=None,
         attention_mask=None,
     ):
         # length of generated sentences / unfinished sentences
@@ -186,6 +198,7 @@ class EncoderDecoderBase(nn.Module):
                 input_ids,
                 encoder_out=encoder_outputs,
                 incremental_state=incremental_state,
+                graph_embeddings=graph_embeddings,
             )
 
             next_token_logits = decoder_out[0][:, -1, :]

@@ -4,7 +4,7 @@ from .builder import build_decoder, build_encoder, build_generator_model
 from .decoders import RecurrentDecoder, TransformerDecoder
 from .discriminators import RecurrentDiscriminator
 from .encoders import RecurrentEncoder, TransformerEncoder
-from .generators import (EDD, GCNLSTM, HuggingFaceWrapper, StackedResidualLSTM,
+from .generators import (EDD, GCNLSTM, HuggingFaceWrapper, RecurrentModel,
                          VanillaTransformer)
 from .losses import pair_wise_loss
 from .registry import (DECODERS, DISCRIMINATORS, ENCODERS, GENERATORS,
@@ -24,7 +24,7 @@ __all__ = [
     "RecurrentDiscriminator",
     "RecurrentEncoder",
     "TransformerEncoder",
-    "StackedResidualLSTM",
+    "RecurrentModel",
     "GCNLSTM",
     "EDD",
     "HuggingFaceWrapper",

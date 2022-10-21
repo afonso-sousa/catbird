@@ -86,6 +86,8 @@ class RecurrentEncoder(nn.Module):
 
         x = self.embed_tokens(input_ids)
 
+        # print(self.embed_tokens.weight.shape) # [vocab_len, hidden]
+
         x = self.dropout_in_module(x)  # batch x seqlen x hidden
 
         # B x T x C -> T x B x C

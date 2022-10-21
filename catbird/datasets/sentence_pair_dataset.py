@@ -54,19 +54,17 @@ class SentencePairDataset(Dataset):
 
         # tgt
         tgt_text = [str(self.data[idx]["tgt"])]
-        with self.tokenizer.as_target_tokenizer():
-            tgt_text_tokenized = self.tokenizer(
-                tgt_text,
-                max_length=self.max_length,
-                padding="max_length",
-                truncation=True,
-            )
+        # with self.tokenizer.as_target_tokenizer():
+        tgt_text_tokenized = self.tokenizer(
+            tgt_text,
+            max_length=self.max_length,
+            padding="max_length",
+            truncation=True,
+        )
 
         tgt_text_tokenized = tgt_text_tokenized.input_ids
 
         model_inputs["labels"] = tgt_text_tokenized
-
-        # print(self.tokenizer.convert_ids_to_tokens(tgt_text_tokenized[0]))
 
         batch = {k: torch.tensor(v).squeeze(0) for (k, v) in model_inputs.items()}
 

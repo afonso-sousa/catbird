@@ -72,3 +72,103 @@ class IETripleGraph(nn.Module):
         else:
             self.annotators = ["openie"]
             self.properties = {}
+
+
+# %%
+import os
+
+os.chdir(os.path.join(os.getcwd(), "../.."))
+
+
+# %%
+from torch_geometric.data import Data
+import torch
+from catbird.utils import load
+from catbird.tokenizers import build_tokenizer
+from catbird.utils import Config
+
+data = load("data/quora/quora_with_dp.pkl")
+
+# %%
+all_dependencies = list(set(token["dep"] for sample in data for token in sample["src_dp"]))
+all_pos = list(set(token["pos"] for sample in data for token in sample["src_dp"]))
+
+
+# %%
+sample = data[3]
+
+# nodes = set(token["word"] for token in sample["src_dp"])
+# nodes = list(nodes)
+nodes = [[token["word"], token["pos"]] for token in sample["src_dp"]]
+
+# %%
+edges = []
+edge_attr = []
+for idx, token in enumerate(sample["src_dp"]):
+    if token["head"] != -1:
+        edges.append(
+            [
+                token["head"],
+                idx,
+            ]
+        )
+        edge_attr.append([token["dep"]])
+
+# %%
+cfg = Config.fromfile("configs/stacked_residual_lstm_quora.py")
+tokenizer = build_tokenizer(cfg)
+
+# %%
+special_tokens_dict = {"additional_special_tokens": all_pos}
+tokenizer.add_special_tokens(special_tokens_dict)
+
+# %%
+x = torch.tensor(
+    [tokenizer.convert_tokens_to_ids(node) for node in nodes], dtype=torch.float
+)
+
+edge_index = torch.tensor(edges, dtype=torch.long).t().contiguous()
+
+# %%
+graph = Data(x=x, edge_index=edge_index)
+
+# %%
+sample = data[3]
+
+# nodes = set(token["word"] for token in sample["src_dp"])
+# nodes = list(nodes)
+nodes = [token["word"] for token in sample["src_dp"]]
+
+# %%
+edges = []
+for idx, token in enumerate(sample["src_dp"]):
+    if token["head"] != -1:
+        nodes.append(token["dep"])
+        edges.append(
+            [
+                token["head"],
+                nodes.index(token["dep"]),
+            ]
+        )
+        edges.append(
+            [
+                nodes.index(token["dep"]),
+                idx,
+            ]
+        )
+
+
+# %%
+cfg = Config.fromfile("configs/stacked_residual_lstm_quora.py")
+tokenizer = build_tokenizer(cfg)
+
+# %%
+special_tokens_dict = {"additional_special_tokens":  all_pos + all_dependencies}
+tokenizer.add_special_tokens(special_tokens_dict)
+
+# %%
+x = torch.tensor(
+    [tokenizer.convert_tokens_to_ids(node) for node in nodes], dtype=torch.float
+)
+
+edge_index = torch.tensor(edges, dtype=torch.long).t().contiguous()

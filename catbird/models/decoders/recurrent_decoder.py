@@ -2,7 +2,7 @@ import torch
 from torch import nn
 
 from ..incremental_decoding import with_incremental_state
-from ..modules import RecurrentCell
+from ..modules import RecurrentCell, AttentionLayer, FusionLayer
 from ..registry import DECODERS
 
 
@@ -21,6 +21,8 @@ class RecurrentDecoder(nn.Module):
         num_layers=1,
         mode="LSTM",
         residual=False,
+        attention=False,
+        fusion=False,
     ):
         super(RecurrentDecoder, self).__init__()
         self.vocab_size = vocab_size
@@ -52,40 +54,45 @@ class RecurrentDecoder(nn.Module):
             ]
         )
 
+        if attention:
+            self.attention = AttentionLayer(
+                hidden_size, encoder_output_units, hidden_size, bias=False
+            )
+        else:
+            self.attention = None
+
+        if fusion:
+            self.fusion = FusionLayer(
+                hidden_size, encoder_output_units, hidden_size, bias=False
+            )
+        else:
+            self.fusion = None
+
         # Define the output projection.
         self.fc_out = nn.Linear(hidden_size, vocab_size)
 
     # During training Decoders are expected to take the entire target sequence
     # (shifted right by one position) and produce logits over the vocabulary.
-    # The *prev_output_tokens* tensor begins with the end-of-sentence symbol,
-    # ``dictionary.eos()``, followed by the target sequence.
-    def forward(self, input_ids, encoder_out, incremental_state=None, **kwargs):
-        """
-        cfg:
-            prev_output_tokens (LongTensor): previous decoder outputs of shape
-                `(batch, tgt_len)`, for teacher forcing
-            encoder_out (Tensor, optional): output from the encoder, used for
-                encoder-side attention
-
-        Returns:
-            tuple:
-                - the last decoder layer's output of shape
-                  `(batch, tgt_len, vocab)`
-                - the last decoder layer's attention weights of shape
-                  `(batch, tgt_len, src_len)`
-        """
+    def forward(
+        self,
+        input_ids,
+        encoder_out,
+        incremental_state=None,
+        graph_embeddings=None,
+        **kwargs
+    ):
         x, attn_scores = self.extract_features(
-            input_ids, encoder_out, incremental_state
+            input_ids, encoder_out, incremental_state, graph_embeddings
         )
         return self.fc_out(x), attn_scores
 
-    def extract_features(self, input_ids, encoder_out, incremental_state=None):
-        # print(incremental_state)
-
-        # encoder_outs = encoder_out[0]
+    def extract_features(
+        self, input_ids, encoder_out, incremental_state=None, graph_embeddings=None
+    ):
+        encoder_outs = encoder_out[0]
         encoder_hiddens = encoder_out[1]
         encoder_cells = encoder_out[2]
-        # encoder_padding_mask = encoder_out[3]
+        encoder_padding_mask = encoder_out[3]
 
         if incremental_state is not None and len(incremental_state) > 0:
             input_ids = input_ids[:, -1:]
@@ -107,7 +114,13 @@ class RecurrentDecoder(nn.Module):
             prev_hiddens = [encoder_hiddens[i] for i in range(self.num_layers)]
             prev_cells = [encoder_cells[i] for i in range(self.num_layers)]
             input_feed = x.new_zeros(batch_size, self.hidden_size)
+        srclen = encoder_outs.size(0)
 
+        attn_scores = (
+            x.new_zeros(srclen, seqlen, batch_size)
+            if self.attention is not None
+            else None
+        )
         outs = []
         for j in range(seqlen):
             # input feeding: concatenate context vector from previous time step
@@ -129,7 +142,26 @@ class RecurrentDecoder(nn.Module):
                 prev_hiddens[i] = hidden
                 prev_cells[i] = cell
 
-            out = hidden
+            # fuse using the last layer's hidden state
+            if self.fusion is not None:
+                assert graph_embeddings is not None
+                if graph_embeddings.dim() == 2:
+                    graph_embeddings = graph_embeddings.unsqueeze(0).repeat(
+                        srclen, 1, 1
+                    )
+                out = self.fusion(hidden, graph_embeddings)
+            else:
+                out = hidden
+
+            # apply attention using the last layer's hidden state
+            if self.attention is not None:
+                assert attn_scores is not None
+                out, attn_scores[:, j, :] = self.attention(
+                    hidden, encoder_outs, encoder_padding_mask
+                )
+            else:
+                out = hidden
+
             out = self.dropout_out_module(out)
 
             # input feeding
