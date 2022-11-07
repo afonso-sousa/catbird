@@ -8,16 +8,17 @@ import ignite.distributed as idist
 from catbird.apis import create_evaluator, create_trainer
 from catbird.utils import Config, mkdir_or_exist, log_metrics
 
-from catbird.core import build_optimizer
+from catbird.core import build_optimizer, build_lr_scheduler
 from catbird.datasets import build_dataset, get_dataloader
 from catbird.models import build_generator_model
 from catbird.tokenizers import build_tokenizer
 from ignite.contrib.engines import common
 from ignite.engine import Events
-from ignite.handlers import Checkpoint, DiskSaver, global_step_from_engine
+from ignite.handlers import Checkpoint, DiskSaver, global_step_from_engine, LRScheduler
 from ignite.utils import manual_seed, setup_logger
 from ignite.metrics import Bleu
 import logging
+from torch.optim.lr_scheduler import MultiStepLR
 
 warnings.filterwarnings("ignore")
 
@@ -35,9 +36,9 @@ def parse_args():
     )
     parser.add_argument("--resume-from", help="the checkpoint file to resume from")
     parser.add_argument("--seed", type=int, default=0, help="random seed")
-    group_gpus = parser.add_mutually_exclusive_group()
-    group_gpus.add_argument("--gpus", type=int, help="number of gpus to use")
-    group_gpus.add_argument("--gpu-ids", type=int, nargs="+", help="ids of gpus to use")
+    # group_gpus = parser.add_mutually_exclusive_group()
+    # group_gpus.add_argument("--gpus", type=int, help="number of gpus to use")
+    # group_gpus.add_argument("--gpu-ids", type=int, nargs="+", help="ids of gpus to use")
 
     args = parser.parse_args()
 
@@ -49,13 +50,9 @@ def training(local_rank, cfg, args):
     manual_seed(args.seed + rank)
 
     logger = setup_logger(name="Train", distributed_rank=local_rank)
-    # log_basic_info(logger, cfg)
 
     tokenizer = build_tokenizer(cfg)
     cfg.embedding_length = len(tokenizer)
-
-    # print(tokenizer.convert_ids_to_tokens(list(range(len(tokenizer)))))
-    # assert False
 
     cfg.pad_token_id = tokenizer.pad_token_id
     cfg.eos_token_id = tokenizer.sep_token_id
@@ -74,26 +71,25 @@ def training(local_rank, cfg, args):
         cfg.resume_from = args.resume_from
         logger.info(f"Resuming model from '{cfg.resume_from}'")
 
-    # if cfg.data.get("with_dep", False):
-    #     cfg.num_relations = len(train_dataset.all_pos)
-
     model = build_generator_model(cfg)
 
     optimizer = build_optimizer(model, cfg.optimizer)
 
-    # lr_scheduler = build_lr_scheduler(
-    #     optimizer,
-    #     cfg.scheduler.peak_lr,
-    #     cfg.scheduler.num_warmup_epochs,
-    #     cfg.train.num_epochs,
-    #     cfg.train.get("epoch_length", len(train_dataset)),
-    # )
-
-    lr_scheduler = None
+    lr_scheduler = build_lr_scheduler(
+        optimizer,
+        cfg.scheduler.peak_lr,
+        cfg.scheduler.num_warmup_epochs,
+        cfg.train.num_epochs,
+        cfg.train.get("epoch_length", len(train_dataset)),
+    )
 
     trainer = create_trainer(
-        cfg, model, optimizer, lr_scheduler, train_dataloader.sampler, logger, tokenizer
+        cfg, model, optimizer, lr_scheduler, train_dataloader.sampler, logger
     )
+
+    # @trainer.on(Events.ITERATION_COMPLETED)
+    # def print_lr():
+    #     print(optimizer.param_groups[0]["lr"])
 
     best_model_handler = partial(
         Checkpoint,

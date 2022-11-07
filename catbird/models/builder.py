@@ -42,7 +42,7 @@ def build_generator_model(cfg: Config) -> nn.Module:
                 if key == "type":
                     continue
                 if key == "graph_encoder":
-                    # cfg.model[key].num_relations = cfg.num_relations
+                    cfg.model[key].num_relations = cfg.num_relations
                     continue
                 cfg.model[key].vocab_size = cfg.embedding_length
                 cfg.model[key].pad_token_id = cfg.pad_token_id

@@ -13,7 +13,6 @@ data = dict(
     max_length=40,
     train=dict(dataset_length=-1),
     val=dict(dataset_length=-1),
-    with_dep=True,
 )
 
 tokenizer = dict(name="roberta-base")
@@ -24,8 +23,7 @@ train = dict(
     batch_size=16,
     accumulation_steps=1,
     with_amp=False,
-    epoch_length=None,
-    validation_interval=10,  # epochs
+    validation_interval=5,  # epochs
 )
 
 test = dict(
@@ -39,7 +37,7 @@ model = dict(
     encoder=dict(
         type="RecurrentEncoder",
         mode="LSTM",
-        num_layers=3,
+        num_layers=2,
         hidden_size=512,
         dropout_out=0.5,
         residual=True,
@@ -47,7 +45,7 @@ model = dict(
     decoder=dict(
         type="RecurrentDecoder",
         mode="LSTM",
-        num_layers=3,
+        num_layers=2,
         hidden_size=512,
         dropout_out=0.5,
         residual=True,
@@ -55,9 +53,9 @@ model = dict(
 )
 
 # optimizer settings
-optimizer = dict(type="SGD", lr=8e-4, momentum=0.9)
-# optimizer = dict(type="Adam", lr=8e-4)
+optimizer = dict(type="Adam", lr=1e-3)
+# optimizer = dict(type="SGD", lr=8e-4, momentum=0.9)
 # optimizer = dict(type="RMSprop", lr=8e-4)
 
 # scheduler settings
-scheduler = dict(num_warmup_epochs=4, peak_lr=1e-3)
+scheduler = dict(num_warmup_epochs=2, peak_lr=1e-2)

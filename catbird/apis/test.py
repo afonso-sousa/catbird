@@ -3,12 +3,11 @@ from typing import Dict, Union
 
 import ignite.distributed as idist
 import torch
+from catbird.utils import Config
 from ignite.engine import Engine
+from nltk import word_tokenize
 from torch import nn
 from transformers import AutoTokenizer
-
-from catbird.models.generators.base import EncoderDecoderBase
-from catbird.utils import Config
 
 
 def default_test_step(
@@ -39,19 +38,23 @@ def default_test_step(
         if batch["labels"].device != device:
             batch = {k: v.to(device, non_blocking=True) for (k, v) in batch.items()}
 
-        src_ids = batch["input_ids"]
+        input_ids = batch["input_ids"]
         labels = batch["labels"]
 
         # if isinstance(model, EncoderDecoderBase):
         #     y_pred = model.generate(src_ids, num_beams=cfg.test.get("num_beams", 1))
         # else:
-        y_pred = model.generate(src_ids)
+        # y_pred = model.generate(src_ids)
+        if cfg.data.get("with_dep", False):
+            y_pred = model.generate(input_ids, batch["graph"])
+        else:
+            y_pred = model.generate(input_ids)
 
-        preds = ids_to_clean_text(y_pred)
-        tgt = ids_to_clean_text(labels)
+        preds_text = ids_to_clean_text(y_pred)
+        tgt_text = ids_to_clean_text(labels)
 
-        preds = [_preds.split() for _preds in preds]
-        tgt = [[_tgt.split()] for _tgt in tgt]
+        preds = [word_tokenize(_preds) for _preds in preds_text]
+        tgt = [[word_tokenize(_tgt)] for _tgt in tgt_text]
 
         if engine.state.iteration % cfg.test.print_output_every == 0:
             logger.info(

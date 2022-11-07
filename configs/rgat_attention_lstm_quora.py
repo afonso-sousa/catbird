@@ -20,8 +20,7 @@ train = dict(
     batch_size=32,
     accumulation_steps=1,
     with_amp=False,
-    epoch_length=None,
-    validation_interval=10,  # epochs
+    validation_interval=5,  # epochs
 )
 
 test = dict(
@@ -32,27 +31,28 @@ test = dict(
 # model settings
 model = dict(
     type="RGATLSTM",
-    # graph_layer=dict(
-    #     coref=True),
-    graph_encoder=dict(type="RGATEncoder", in_channels=16, hidden_size=128),
+    graph_encoder=dict(type="RGATEncoder", in_channels=256, hidden_size=256),
     encoder=dict(
         type="RecurrentEncoder",
         mode="LSTM",
-        num_layers=3,
-        hidden_size=512,
+        num_layers=2,
+        hidden_size=256,
         dropout_out=0.5,
     ),
     decoder=dict(
         type="RecurrentDecoder",
         mode="LSTM",
-        num_layers=3,
-        hidden_size=512,
+        num_layers=2,
+        hidden_size=256,
+        encoder_output_units=256,
         dropout_out=0.5,
+        attention=True,
+        fusion=True,
     ),
 )
 
 # optimizer settings
-optimizer = dict(type="SGD", lr=8e-4, momentum=0.9)
+optimizer = dict(type="Adam", lr=1e-3)
 
 # scheduler settings
-scheduler = dict(num_warmup_epochs=4, peak_lr=1e-3)
+scheduler = dict(num_warmup_epochs=2, peak_lr=1e-2)

@@ -9,7 +9,7 @@ from transformers import AutoTokenizer
 from catbird.utils import Config
 
 from .sentence_pair_dataset import SentencePairDataset
-from .graph_utils import build_levi_graph
+from .graph_utils import build_levi_graph, build_graph
 
 
 class GraphSentPairDataset(SentencePairDataset):
@@ -33,8 +33,13 @@ class GraphSentPairDataset(SentencePairDataset):
         self.all_pos = list(
             set(token["pos"] for sample in data for token in sample["src_dp"])
         )
-        self.num_relations = len(self.all_dependencies)
+        cfg.num_relations = len(self.all_dependencies)
 
+        # special_tokens = [
+        #     f"[{token}]" for token in self.all_pos + self.all_dependencies
+        # ]
+        # special_tokens_dict = {"additional_special_tokens": special_tokens}
+        # tokenizer.add_special_tokens(special_tokens_dict)
         self.tokenizer = tokenizer
 
     def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
@@ -55,7 +60,10 @@ class GraphSentPairDataset(SentencePairDataset):
         #     self.data[idx], self.all_dependencies, self.all_pos, self.tokenizer
         # )
 
-        batch["graph"] = build_levi_graph(
+        # batch["graph"] = build_levi_graph(
+        #     self.data[idx], self.all_dependencies, self.all_pos, self.tokenizer
+        # )
+        batch["graph"] = build_graph(
             self.data[idx], self.all_dependencies, self.all_pos, self.tokenizer
         )
 

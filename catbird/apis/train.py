@@ -24,7 +24,6 @@ def default_train_step(
     optimizer: optim.Optimizer,
     device: Union[str, torch.device],
     scaler: GradScaler,
-    tokenizer,
 ):
     """Decorate train step to add more parameters.
 
@@ -61,6 +60,7 @@ def default_train_step(
                 loss = model(input_ids=input_ids, graph=batch["graph"], labels=labels)[
                     0
                 ]
+                # loss = model(input_ids=input_ids, labels=labels)[0]
             else:
                 loss = model(input_ids=input_ids, labels=labels)[0]
 
@@ -108,6 +108,7 @@ def default_evaluate_step(
         labels = batch["labels"]
 
         if cfg.data.get("with_dep", False):
+            # y_pred = model.generate(input_ids, batch["graph"])
             y_pred = model.generate(input_ids, batch["graph"])
         else:
             y_pred = model.generate(input_ids)
@@ -160,7 +161,6 @@ def create_trainer(
     lr_scheduler: optim.lr_scheduler,
     train_sampler: Optional[DistributedSampler],
     logger: Logger,
-    tokenizer,
 ) -> Engine:
     """Create a training step for the given model.
 
@@ -178,7 +178,7 @@ def create_trainer(
     device = idist.device()
     scaler = GradScaler(enabled=cfg.train.with_amp)
 
-    train_step = default_train_step(cfg, model, optimizer, device, scaler, tokenizer)
+    train_step = default_train_step(cfg, model, optimizer, device, scaler)
 
     trainer = Engine(train_step)
     trainer.logger = logger

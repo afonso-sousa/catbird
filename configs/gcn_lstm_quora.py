@@ -16,11 +16,10 @@ tokenizer = dict(name="roberta-base")
 
 # train settings
 train = dict(
-    num_epochs=100,
-    batch_size=16,
+    num_epochs=30,
+    batch_size=32,
     accumulation_steps=1,
     with_amp=False,
-    epoch_length=None,
     validation_interval=10,  # epochs
 )
 
@@ -36,29 +35,32 @@ model = dict(
     #     coref=True),
     graph_encoder=dict(
         type="GCNEncoder",
-        num_features=1,
-        hidden_size=128,
+        num_features=128,
+        hidden_size=256,
         dropout=0.2,
     ),
     encoder=dict(
         type="RecurrentEncoder",
         mode="LSTM",
         num_layers=2,
-        hidden_size=128,
+        hidden_size=256,
         dropout_out=0.5,
+        residual=True,
     ),
     decoder=dict(
         type="RecurrentDecoder",
         mode="LSTM",
         num_layers=2,
-        hidden_size=128,
+        hidden_size=256,
+        encoder_output_units=256,
         dropout_out=0.5,
+        residual=True,
         fusion=True,
     ),
 )
 
 # optimizer settings
-optimizer = dict(type="SGD", lr=8e-4, momentum=0.9)
+optimizer = dict(type="Adam", lr=1e-3)
 
 # scheduler settings
-scheduler = dict(num_warmup_epochs=4, peak_lr=1e-3)
+scheduler = dict(num_warmup_epochs=2, peak_lr=1e-2)

@@ -132,8 +132,12 @@ class EncoderDecoderBase(nn.Module):
         batch_size = input_ids.shape[0]
 
         encoder_outs = self.encoder(input_ids)
+
+        graph_embeddings = None
         if graph:
-            graph_embeddings = self.graph_encoder(graph)
+            graph_embeddings = self.graph_encoder(
+                graph, self.encoder.embed_tokens.weight
+            )
 
         input_ids = torch.full(
             (batch_size, 1),

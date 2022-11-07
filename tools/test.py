@@ -4,7 +4,8 @@ from pathlib import Path
 
 import torch
 from catbird.apis import create_tester
-from catbird.core import TER, Meteor
+
+# from catbird.core import TER, Meteor
 from catbird.utils import Config, mkdir_or_exist, log_metrics
 from catbird.datasets import build_dataset, get_dataloader
 from catbird.models import build_generator_model
@@ -12,14 +13,15 @@ from catbird.tokenizers import build_tokenizer
 from ignite.contrib.engines import common
 from ignite.engine import Events
 from ignite.handlers import Checkpoint
-from ignite.metrics import Bleu
+from ignite.metrics import Bleu, Rouge
 from ignite.utils import setup_logger
 
 available_metrics = {
-    "bleu": Bleu(ngram=4, smooth="smooth1", average="micro"),
-    "bleu_smooth_2": Bleu(ngram=4, smooth="smooth2", average="micro"),
-    "meteor": Meteor(),
-    "ter": TER(),
+    "bleu-4": Bleu(ngram=4),
+    # "bleu_smooth_2": Bleu(ngram=4, smooth="smooth2", average="micro"),
+    # "meteor": Meteor(),
+    # "ter": TER(),
+    "rouge-2": Rouge(variants=[2]),
 }
 
 
@@ -32,8 +34,8 @@ def parse_args():
     parser.add_argument(
         "--metrics",
         type=str,
-        default=["bleu", "bleu_smooth_2"],
-        choices=["bleu", "bleu_smooth_2", "meteor", "ter"],
+        default=["bleu-4", "rouge-2"],
+        choices=["bleu-4", "rouge-2", "meteor", "ter"],
         nargs="+",
         help="evaluation metrics",
     )
@@ -87,13 +89,13 @@ def main():
     tester = create_tester(cfg, model, tokenizer, selected_metrics, logger)
 
     # Compute intermediate metrics
-    # @tester.on(Events.TERMINATE())
-    @tester.on(Events.ITERATION_COMPLETED(every=100))
+    @tester.on(Events.ITERATION_COMPLETED(every=cfg.test.print_output_every))
     def compute_and_measure():
         [value.completed(tester, key) for key, value in selected_metrics.items()]
 
-    # @tester.on(Events.TERMINATE())
-    @tester.on(Events.ITERATION_COMPLETED(every=100) | Events.TERMINATE)
+    @tester.on(
+        Events.ITERATION_COMPLETED(every=cfg.test.print_output_every) | Events.TERMINATE
+    )
     def log_info():
         log_metrics(
             logger, tester.state.times["COMPLETED"], "Testing", tester.state.metrics
