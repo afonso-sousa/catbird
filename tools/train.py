@@ -14,11 +14,10 @@ from catbird.models import build_generator_model
 from catbird.tokenizers import build_tokenizer
 from ignite.contrib.engines import common
 from ignite.engine import Events
-from ignite.handlers import Checkpoint, DiskSaver, global_step_from_engine, LRScheduler
+from ignite.handlers import Checkpoint, DiskSaver, global_step_from_engine
 from ignite.utils import manual_seed, setup_logger
-from ignite.metrics import Bleu
+from ignite.metrics import Bleu, RougeN
 import logging
-from torch.optim.lr_scheduler import MultiStepLR
 
 warnings.filterwarnings("ignore")
 
@@ -71,6 +70,7 @@ def training(local_rank, cfg, args):
         cfg.resume_from = args.resume_from
         logger.info(f"Resuming model from '{cfg.resume_from}'")
 
+    print(cfg)
     model = build_generator_model(cfg)
 
     optimizer = build_optimizer(model, cfg.optimizer)
@@ -87,10 +87,6 @@ def training(local_rank, cfg, args):
         cfg, model, optimizer, lr_scheduler, train_dataloader.sampler, logger
     )
 
-    # @trainer.on(Events.ITERATION_COMPLETED)
-    # def print_lr():
-    #     print(optimizer.param_groups[0]["lr"])
-
     best_model_handler = partial(
         Checkpoint,
         {"model": model},
@@ -105,8 +101,8 @@ def training(local_rank, cfg, args):
         val_dataloader = get_dataloader(cfg, "val", val_dataset)
 
         metrics = {
-            "bleu": Bleu(ngram=4, smooth="smooth1", average="micro"),
-            "bleu_smooth_2": Bleu(ngram=4, smooth="smooth2", average="micro"),
+            "bleu": Bleu(ngram=4),
+            "rouge-2": RougeN(ngram=2),
         }
 
         sample_save_path = Path(cfg.work_dir, "samples").resolve()

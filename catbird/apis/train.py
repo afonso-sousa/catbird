@@ -97,7 +97,6 @@ def default_evaluate_step(
 
     @torch.no_grad()
     def routine(engine, batch):
-
         model.eval()
 
         device = idist.device()
@@ -108,7 +107,6 @@ def default_evaluate_step(
         labels = batch["labels"]
 
         if cfg.data.get("with_dep", False):
-            # y_pred = model.generate(input_ids, batch["graph"])
             y_pred = model.generate(input_ids, batch["graph"])
         else:
             y_pred = model.generate(input_ids)
@@ -122,29 +120,24 @@ def default_evaluate_step(
         preds = [word_tokenize(_preds) for _preds in preds_text]
         tgt = [[word_tokenize(_tgt)] for _tgt in tgt_text]
 
-        # if engine.state.iteration % cfg.test.print_output_every == 0:
-        idx = random.randint(0, len(batch) - 1)
-        output_info = (
-            "\n"
-            f"Random batch sample #{idx}\n"
-            f"Source: {' '.join(src[idx])}\n"
-            f"Preds: {' '.join(preds[idx])}\n"
-            f"Target: {' '.join(tgt[idx][0])}\n"
-        )
+        if engine.state.iteration % cfg.test.print_output_every == 0:
+            idx = random.randint(0, len(batch) - 1)
+            output_info = (
+                "\n"
+                f"Random batch sample #{idx}\n"
+                f"Source: {' '.join(src[idx])}\n"
+                f"Preds: {' '.join(preds[idx])}\n"
+                f"Target: {' '.join(tgt[idx][0])}\n"
+            )
 
-        logger.info(output_info)
-        f = fopen(
-            Path(sample_save_path)
-            / f"samples__{engine.state.trainer_epoch}_{engine.state.iteration}.txt",
-            mode="w",
-        )
-        f.write(output_info)
-        f.close()
-
-        # if isinstance(model, EncoderDecoderBase):
-        #     loss = model(input_ids=input_ids, labels=labels)[0]
-        # else:
-        #     loss = model(input_ids=input_ids, attention_mask=batch["attention_mask"], tgt=labels)
+            logger.info(output_info)
+            if sample_save_path:
+                with fopen(
+                    Path(sample_save_path)
+                    / f"samples__{engine.state.trainer_epoch}_{engine.state.iteration}.txt",
+                    mode="w",
+                ) as f:
+                    f.write(output_info)
 
         return {
             "y_pred": preds,
@@ -202,7 +195,7 @@ def create_evaluator(
     tokenizer: AutoTokenizer,
     metrics: Dict,
     logger: Logger,
-    sample_save_path,
+    sample_save_path=None,
 ) -> Engine:
     """Create an evaluation step for the given model.
 

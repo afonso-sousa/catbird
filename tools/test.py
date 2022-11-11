@@ -3,7 +3,7 @@ import argparse
 from pathlib import Path
 
 import torch
-from catbird.apis import create_tester
+from catbird.apis import create_evaluator
 
 # from catbird.core import TER, Meteor
 from catbird.utils import Config, mkdir_or_exist, log_metrics
@@ -13,7 +13,7 @@ from catbird.tokenizers import build_tokenizer
 from ignite.contrib.engines import common
 from ignite.engine import Events
 from ignite.handlers import Checkpoint
-from ignite.metrics import Bleu, Rouge
+from ignite.metrics import Bleu, RougeN
 from ignite.utils import setup_logger
 
 available_metrics = {
@@ -21,7 +21,7 @@ available_metrics = {
     # "bleu_smooth_2": Bleu(ngram=4, smooth="smooth2", average="micro"),
     # "meteor": Meteor(),
     # "ter": TER(),
-    "rouge-2": Rouge(variants=[2]),
+    "rouge-2": RougeN(ngram=2)["Rouge-2-F"],
 }
 
 
@@ -62,16 +62,21 @@ def main():
 
     tokenizer = build_tokenizer(cfg)
     cfg.embedding_length = len(tokenizer)
+
     cfg.pad_token_id = tokenizer.pad_token_id
-    cfg.eos_token_id = (
-        tokenizer.eos_token_id if tokenizer.eos_token_id else tokenizer.sep_token_id
-    )
-    cfg.decoder_start_token_id = (
-        tokenizer.eos_token_id if tokenizer.eos_token_id else tokenizer.pad_token_id
+    cfg.eos_token_id = tokenizer.sep_token_id
+    cfg.bos_token_id = tokenizer.cls_token_id
+    cfg.decoder_start_token_id = cfg.bos_token_id
+    logger.info(
+        f"Tokenizer special tokens: \npad_token: {tokenizer.decode(cfg.pad_token_id)} - {cfg.pad_token_id}\n"
+        f"eos_token: {tokenizer.decode(cfg.eos_token_id)} - {cfg.eos_token_id}\n"
+        f"decoder_start_token: {tokenizer.decode(cfg.decoder_start_token_id)} - {cfg.decoder_start_token_id}"
     )
 
     val_dataset = build_dataset(cfg, "val", tokenizer)
     val_dataloader = get_dataloader(cfg, "test", val_dataset)
+
+    # cfg.resume_from = args.checkpoint
 
     model = build_generator_model(cfg)
 
@@ -86,7 +91,7 @@ def main():
     }
     logger.info(f"The selected metrics are: {', '.join(selected_metrics.keys())}")
 
-    tester = create_tester(cfg, model, tokenizer, selected_metrics, logger)
+    tester = create_evaluator(cfg, model, tokenizer, selected_metrics, logger)
 
     # Compute intermediate metrics
     @tester.on(Events.ITERATION_COMPLETED(every=cfg.test.print_output_every))

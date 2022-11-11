@@ -19,12 +19,7 @@ def log_metrics(
         metrics (Dict[str, Any]): Dictionary with evaluation metrics' outputs.
         epoch (Optional[int]): Epoch number.
     """
-    metrics_output = "\n".join(
-        [
-            f"\t{k}: {v}" if k != "rouge-2" else f"\t{k}: {v['Rouge-2-F']}"
-            for k, v in metrics.items()
-        ]
-    )
+    metrics_output = "\n".join([f"\t{k}: {v}" for k, v in metrics.items()])
     epoch_string = f"Epoch: {epoch} - " if epoch else ""
     logger.info(
         f"\n{epoch_string}Evaluation time (seconds): {elapsed:.2f} - {tag} metrics:\n {metrics_output}"
