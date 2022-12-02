@@ -18,6 +18,11 @@ from transformers import AutoTokenizer
 from catbird.utils import Config, fopen
 
 
+def ids_to_clean_text(generated_ids, tokenizer):
+    gen_text = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)
+    return list(map(str.strip, gen_text))
+
+
 def default_train_step(
     cfg: Config,
     model: nn.Module,
@@ -60,7 +65,6 @@ def default_train_step(
                 loss = model(input_ids=input_ids, graph=batch["graph"], labels=labels)[
                     0
                 ]
-                # loss = model(input_ids=input_ids, labels=labels)[0]
             else:
                 loss = model(input_ids=input_ids, labels=labels)[0]
 
@@ -91,10 +95,6 @@ def default_evaluate_step(
         logger (Logger): a Logger instance.
     """
 
-    def ids_to_clean_text(generated_ids):
-        gen_text = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)
-        return list(map(str.strip, gen_text))
-
     @torch.no_grad()
     def routine(engine, batch):
         model.eval()
@@ -107,13 +107,15 @@ def default_evaluate_step(
         labels = batch["labels"]
 
         if cfg.data.get("with_dep", False):
-            y_pred = model.generate(input_ids, batch["graph"])
+            y_pred = model.generate(
+                input_ids, batch["graph"], num_beams=cfg.test.get("num_beams", 1)
+            )
         else:
-            y_pred = model.generate(input_ids)
+            y_pred = model.generate(input_ids, num_beams=cfg.test.get("num_beams", 1))
 
-        src_ids_text = ids_to_clean_text(input_ids)
-        preds_text = ids_to_clean_text(y_pred)
-        tgt_text = ids_to_clean_text(labels)
+        src_ids_text = ids_to_clean_text(input_ids, tokenizer)
+        preds_text = ids_to_clean_text(y_pred, tokenizer)
+        tgt_text = ids_to_clean_text(labels, tokenizer)
 
         # Torch Ignite metrics expect a list of hypotheses and a list of lists of references
         src = [word_tokenize(_src) for _src in src_ids_text]
@@ -189,6 +191,51 @@ def create_trainer(
     return trainer
 
 
+def parroting_evaluation(cfg, tokenizer, logger):
+    """Decorate evaluate step to add more parameters.
+
+    Args:
+        cfg (Config): Config instance with configurations.
+        model (nn.Module): a Pytorch model.
+        tokenizer (AutoTokenizer): a Pytorch optimizer.
+        device (Union[str, torch.device]): specifies which device updates are accumulated on.
+        logger (Logger): a Logger instance.
+    """
+
+    @torch.no_grad()
+    def routine(engine, batch):
+        device = idist.device()
+        if batch["labels"].device != device:
+            batch = {k: v.to(device, non_blocking=True) for (k, v) in batch.items()}
+
+        input_ids = batch["input_ids"]
+        labels = batch["labels"]
+
+        src_ids_text = ids_to_clean_text(input_ids, tokenizer)
+        tgt_text = ids_to_clean_text(labels, tokenizer)
+
+        src = [word_tokenize(_src) for _src in src_ids_text]
+        tgt = [[word_tokenize(_tgt)] for _tgt in tgt_text]
+
+        if engine.state.iteration % cfg.test.print_output_every == 0:
+            idx = random.randint(0, len(batch) - 1)
+            output_info = (
+                "\n"
+                f"Random batch sample #{idx}\n"
+                f"Source: {' '.join(src[idx])}\n"
+                f"Target: {' '.join(tgt[idx][0])}\n"
+            )
+
+            logger.info(output_info)
+
+        return {
+            "y_pred": src,
+            "y": tgt,
+        }
+
+    return routine
+
+
 def create_evaluator(
     cfg: Config,
     model: nn.Module,
@@ -196,6 +243,7 @@ def create_evaluator(
     metrics: Dict,
     logger: Logger,
     sample_save_path=None,
+    parroting=False,
 ) -> Engine:
     """Create an evaluation step for the given model.
 
@@ -209,9 +257,12 @@ def create_evaluator(
     Returns:
         Engine: Object to run the defined evaluation step over each batch of a dataset.
     """
-    evaluate_step = default_evaluate_step(
-        cfg, model, tokenizer, logger, sample_save_path
-    )
+    if parroting:
+        evaluate_step = parroting_evaluation(cfg, tokenizer, logger)
+    else:
+        evaluate_step = default_evaluate_step(
+            cfg, model, tokenizer, logger, sample_save_path
+        )
 
     evaluator = Engine(evaluate_step)
 

@@ -28,7 +28,7 @@ train = dict(
 
 test = dict(
     print_output_every=15,  # batchs
-    num_beams=1,
+    num_beams=3,
 )
 
 # model settings

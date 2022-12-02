@@ -2,16 +2,17 @@ import argparse
 import torch
 from catbird.tokenizers import build_tokenizer
 from ignite.utils import manual_seed, setup_logger
-from catbird.core import Config, mkdir_or_exist
+from catbird.utils import Config, mkdir_or_exist
 from pathlib import Path
 from ignite.handlers import Checkpoint
 from catbird.models import build_generator_model
 import ignite.distributed as idist
+from catbird.models.generators.base import EncoderDecoderBase
 
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Paraphrase a file using pretrained model"
+        description="Paraphrase using pretrained model"
     )
 
     parser.add_argument("text", help="input text to paraphrase")
@@ -60,6 +61,9 @@ if __name__ == "__main__":
     tokenizer = build_tokenizer(cfg)
     cfg.embedding_length = len(tokenizer)
     cfg.pad_token_id = tokenizer.pad_token_id
+    cfg.eos_token_id = tokenizer.sep_token_id
+    cfg.bos_token_id = tokenizer.cls_token_id
+    cfg.decoder_start_token_id = cfg.bos_token_id
 
     model = build_generator_model(cfg)
 
@@ -70,26 +74,34 @@ if __name__ == "__main__":
     Checkpoint.load_objects(to_load={"model": model}, checkpoint=checkpoint)
 
     input_text = [args.text]
-    
+
     input_txt_tokenized = tokenizer(
-            input_text, max_length=args.max_input_length, padding="max_length", truncation=True
-        )
-    
+        input_text,
+        max_length=args.max_input_length,
+        padding="max_length",
+        truncation=True,
+    )
+
     batch = {
-            k: torch.tensor(v).to(idist.device()) for (k, v) in input_txt_tokenized.items()
-        }
-    src_ids = batch["input_ids"]
+        k: torch.tensor(v).to(idist.device()) for (k, v) in input_txt_tokenized.items()
+    }
+    input_ids = batch["input_ids"]
     src_attention_mask = batch["attention_mask"]
-    
+
     with torch.no_grad():
-        y_preds = model.generate(src_ids, attention_mask=src_attention_mask)
-    
+        if isinstance(model, EncoderDecoderBase):
+            y_pred = model.generate(input_ids)
+        else:
+            y_pred = model.generate(input_ids, attention_mask=src_attention_mask)
+
     def ids_to_clean_text(generated_ids):
         gen_text = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)
         return list(map(str.strip, gen_text))
-    
-    preds = ids_to_clean_text(y_preds)
+
+    preds = ids_to_clean_text(y_pred)
     preds = [_preds.split() for _preds in preds]
-    
-    logger.info(f'\nPreds: {" ".join(preds[0])} \
-                \nTarget: {input_text[0]}')
+
+    logger.info(
+        f'\nPreds: {" ".join(preds[0])} \
+                \nTarget: {input_text[0]}'
+    )

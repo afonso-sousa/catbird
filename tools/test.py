@@ -30,7 +30,11 @@ def parse_args():
         description="Test (and eval) a paraphrase generator"
     )
     parser.add_argument("config", help="train config file path")
-    parser.add_argument("checkpoint", help="checkpoint file")
+    group_eval = parser.add_mutually_exclusive_group()
+    group_eval.add_argument("--checkpoint", help="checkpoint file")
+    group_eval.add_argument(
+        "--parroting", action="store_true", help="whether to evaluate with parroting"
+    )
     parser.add_argument(
         "--metrics",
         type=str,
@@ -76,22 +80,23 @@ def main():
     val_dataset = build_dataset(cfg, "val", tokenizer)
     val_dataloader = get_dataloader(cfg, "test", val_dataset)
 
-    # cfg.resume_from = args.checkpoint
+    if not args.parroting:
+        model = build_generator_model(cfg)
 
-    model = build_generator_model(cfg)
+        num_parameters = sum([l.nelement() for l in model.parameters()])
+        logger.info(f"Model's # of parameters: {num_parameters}")
 
-    num_parameters = sum([l.nelement() for l in model.parameters()])
-    logger.info(f"Model's # of parameters: {num_parameters}")
-
-    checkpoint = torch.load(args.checkpoint)
-    Checkpoint.load_objects(to_load={"model": model}, checkpoint=checkpoint)
+        checkpoint = torch.load(args.checkpoint)
+        Checkpoint.load_objects(to_load={"model": model}, checkpoint=checkpoint)
+    else:
+        model = None
 
     selected_metrics = {
         key: value for key, value in available_metrics.items() if key in args.metrics
     }
     logger.info(f"The selected metrics are: {', '.join(selected_metrics.keys())}")
 
-    tester = create_evaluator(cfg, model, tokenizer, selected_metrics, logger)
+    tester = create_evaluator(cfg, model, tokenizer, selected_metrics, logger, parroting=args.parroting)
 
     # Compute intermediate metrics
     @tester.on(Events.ITERATION_COMPLETED(every=cfg.test.print_output_every))
