@@ -23,7 +23,8 @@ train = dict(
     batch_size=16,
     accumulation_steps=1,
     with_amp=False,
-    validation_interval=5,  # epochs
+    epoch_length=500,
+    validation_interval=1,  # epochs
 )
 
 test = dict(

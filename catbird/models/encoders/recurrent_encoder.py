@@ -39,18 +39,6 @@ class RecurrentEncoder(nn.Module):
         self.dropout_in_module = nn.Dropout(p=dropout_in)
         self.dropout_out_module = nn.Dropout(p=dropout_out)
 
-        # self.rnn = RecurrentLayer(
-        #     mode,
-        #     embedding_size,
-        #     hidden_size,
-        #     num_layers=num_layers,
-        #     bias=bias,
-        #     batch_first=False,
-        #     residual=residual,
-        #     dropout=self.dropout_out_module.p if num_layers > 1 else 0.0,
-        #     bidirectional=bidirectional,
-        # )
-
         self.layers = nn.ModuleList(
             [
                 RecurrentCell(
@@ -85,20 +73,10 @@ class RecurrentEncoder(nn.Module):
         batch_size, seqlen = input_ids.shape
 
         x = self.embed_tokens(input_ids)
-
-        # print(self.embed_tokens.weight.shape) # [vocab_len, hidden]
-
         x = self.dropout_in_module(x)  # batch x seqlen x hidden
 
         # B x T x C -> T x B x C
         x = x.transpose(0, 1)
-
-        # if self.bidirectional:
-        #     state_size = 2 * self.num_layers, batch_size, self.hidden_size
-        # else:
-        #     state_size = self.num_layers, batch_size, self.hidden_size
-
-        # x, (final_hiddens, final_cells) = self.rnn(x, (h0, c0))
 
         zero_state = x.new_zeros(batch_size, self.hidden_size)
         prev_hiddens = [

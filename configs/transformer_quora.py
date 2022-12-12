@@ -6,29 +6,34 @@ num_workers = 4
 dataset_name = "Quora"
 data_root = "data/quora/"
 data = dict(
-    mask_pad_token=True,
-    max_length=50,
+    max_length=40,
     train=dict(dataset_length=-1),
-    val=dict(train_test_split=0.3, dataset_length=2000,),
+    val=dict(dataset_length=-1),
 )
+
+tokenizer = dict(name="roberta-base")
 
 # train settings
 train = dict(
-    num_epochs=100,
-    batch_size=128,
+    num_epochs=50,
+    batch_size=32,
     accumulation_steps=1,
     with_amp=False,
-    epoch_length=100,
+    epoch_length=200,
+    validation_interval=1,  # epochs
 )
 
-test = dict(print_output_every=5, num_beams=1,)
+test = dict(
+    print_output_every=15,  # batchs
+    num_beams=1,
+)
 
 # model settings
 model = dict(
     type="VanillaTransformer",
     encoder=dict(
         type="TransformerEncoder",
-        embedding_size=256,
+        embedding_size=512,
         num_heads=8,
         num_layers=3,
         ffnn_size=512,
@@ -36,7 +41,7 @@ model = dict(
     ),
     decoder=dict(
         type="TransformerDecoder",
-        embedding_size=256,
+        embedding_size=512,
         num_heads=8,
         num_layers=3,
         ffnn_size=512,
@@ -45,8 +50,7 @@ model = dict(
 )
 
 # optimizer settings
-optimizer = dict(type="SGD", lr=0.1, momentum=0.9)
-# optimizer = dict(type="Adam", lr=1e-2)
+optimizer = dict(type="Adam", lr=1e-1)
 
 # scheduler settings
-scheduler = dict(num_warmup_epochs=4, peak_lr=0.4)
+scheduler = dict(num_warmup_epochs=2, peak_lr=1e-2)

@@ -75,33 +75,3 @@ class EncoderDecoderBase(nn.Module, GenerationMixin):
         loss_fct = nn.CrossEntropyLoss(ignore_index=self.pad_token_id)
         loss = loss_fct(logits.reshape(-1, logits.shape[-1]), targets.reshape(-1))
         return loss
-
-    def forward_decoder(
-        self, input_ids, encoder_out, incremental_state, temperature=1.0
-    ):
-        decoder_out = self.decoder.forward(
-            input_ids,
-            encoder_out=encoder_out,
-            incremental_state=incremental_state,
-        )
-        attn = None
-        decoder_len = len(decoder_out)
-        if decoder_len > 1 and decoder_out[1] is not None:
-            if isinstance(decoder_out[1], Tensor):
-                attn = decoder_out[1]
-            else:
-                attn_holder = decoder_out[1]["attn"]
-                if isinstance(attn_holder, Tensor):
-                    attn = attn_holder
-                elif attn_holder is not None:
-                    attn = attn_holder[0]
-            if attn is not None:
-                attn = attn[:, -1, :]
-
-        decoder_out_tuple = (
-            decoder_out[0][:, -1:, :].div_(temperature),
-            None if decoder_len <= 1 else decoder_out[1],
-        )
-        probs = F.log_softmax(decoder_out_tuple[0], dim=-1)
-        probs = probs[:, -1, :]
-        return probs, attn

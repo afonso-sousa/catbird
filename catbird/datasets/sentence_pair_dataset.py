@@ -54,7 +54,6 @@ class SentencePairDataset(Dataset):
 
         # tgt
         tgt_text = [str(self.data[idx]["tgt"])]
-        # with self.tokenizer.as_target_tokenizer():
         tgt_text_tokenized = self.tokenizer(
             tgt_text,
             max_length=self.max_length,

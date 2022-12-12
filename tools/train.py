@@ -21,8 +21,6 @@ import logging
 
 warnings.filterwarnings("ignore")
 
-logger = logging.getLogger(__name__)
-
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Train a paraphrase generator")
@@ -102,7 +100,7 @@ def training(local_rank, cfg, args):
 
         metrics = {
             "bleu": Bleu(ngram=4),
-            "rouge-2": RougeN(ngram=2),
+            "rouge-2": RougeN(ngram=2)["Rouge-2-F"],
         }
 
         sample_save_path = Path(cfg.work_dir, "samples").resolve()

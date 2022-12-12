@@ -44,11 +44,30 @@ class TransformerDecoder(nn.Module):
         self.decoder = nn.TransformerDecoder(decoder_layer, num_layers, decoder_norm)
         self.fc_out = nn.Linear(embedding_size, vocab_size)
 
-    def forward(self, decoder_input_ids, memory, **kwargs):
-        seq_len = decoder_input_ids.shape[0]
+    def forward(
+        self,
+        input_ids,
+        encoder_out,
+        incremental_state=None,
+        graph_embeddings=None,
+    ):
+        seq_len = input_ids.shape[1]
+
         device = next(self.parameters()).device
         mask = generate_square_subsequent_mask(seq_len).to(device)
-        embedded_tokens = self.embed_positions(self.embed_tokens(decoder_input_ids))
-        output = self.decoder(embedded_tokens, memory, mask)
 
-        return self.fc_out(output)
+        embedded_tokens = self.embed_positions(self.embed_tokens(input_ids))
+
+        # B x T x C -> T x B x C
+        embedded_tokens = embedded_tokens.transpose(0, 1)
+
+        # padding_mask = None
+        # if self.training:
+        #     padding_mask = (input_ids == self.pad_token_id).transpose(0, 1)
+        # output = self.decoder(embedded_tokens, encoder_out[0], tgt_mask=mask, tgt_key_padding_mask=padding_mask)
+        output = self.decoder(embedded_tokens, encoder_out[0], tgt_mask=mask)
+
+        # T x B x C -> B x T x C
+        output = output.transpose(1, 0)
+
+        return (self.fc_out(output),)

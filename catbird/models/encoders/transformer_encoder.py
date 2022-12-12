@@ -1,26 +1,12 @@
 import torch
-from torch import Tensor, nn
+from torch import nn
 
 from ..modules import PositionalEmbedding, TokenEmbedding
 from ..registry import ENCODERS
 
 
-def generate_square_subsequent_mask(sz: int) -> Tensor:
-    """Generates an upper-triangular matrix of -inf, with zeros on diag."""
-    return torch.triu(torch.ones(sz, sz) * float("-inf"), diagonal=1)
-
-
 @ENCODERS.register_module
 class TransformerEncoder(nn.Module):
-    """
-    Transformer encoder consisting of *cfg.encoder.layers* layers. Each layer
-    is a :class:`TransformerEncoderLayer`.
-    Args:
-        args (argparse.Namespace): parsed command-line arguments
-        dictionary (~fairseq.data.Dictionary): encoding dictionary
-        embed_tokens (torch.nn.Embedding): input embedding
-    """
-
     def __init__(
         self,
         vocab_size,
@@ -56,13 +42,23 @@ class TransformerEncoder(nn.Module):
         self,
         input_ids,
     ):
-        # sequence_length = input_ids.shape[0]
-        # padding_mask = (input_ids == self.pad_token_id).transpose(0, 1)
+
+        # seq_len = input_ids.shape[1]
         # device = next(self.parameters()).device
-        # mask = generate_square_subsequent_mask(sequence_length).to(device)
 
         embedded_tokens = self.embed_positions(self.embed_tokens(input_ids))
-        # memory = self.encoder(embedded_tokens, mask=mask, src_key_padding_mask=padding_mask)
-        memory = self.encoder(embedded_tokens)
+        # B x T x C -> T x B x C
+        embedded_tokens = embedded_tokens.transpose(0, 1)
 
-        return memory
+        # mask = torch.zeros((seq_len, seq_len),device=device).type(torch.bool)
+
+        # padding_mask = None
+        # if self.training:
+        padding_mask = (input_ids == self.pad_token_id)
+        # memory = self.encoder(embedded_tokens, mask=mask, src_key_padding_mask=padding_mask)
+        memory = self.encoder(embedded_tokens, src_key_padding_mask=padding_mask)
+
+        return (memory,)
+
+    def reorder_encoder_out(self, encoder_out, new_order):
+        return (encoder_out[0].index_select(1, new_order),)

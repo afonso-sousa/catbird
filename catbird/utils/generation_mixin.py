@@ -1,3 +1,5 @@
+# Generation Mixin. Based on Huggingface's Generation Mixin
+# (<https://github.com/huggingface/transformers/blob/main/src/transformers/generation_utils.py>).
 import torch
 from torch import Tensor
 from torch.nn import functional as F
@@ -110,7 +112,8 @@ class GenerationMixin:
             .view(-1)
             .to(input_ids.device)
         )
-
+        # expand encoder_outputs
+        # encoder_outputs = (encoder_outputs[0].index_select(0, expanded_batch_idxs), *encoder_outputs[1:])
         encoder_outputs = self.encoder.reorder_encoder_out(
             encoder_outputs, expanded_batch_idxs
         )
