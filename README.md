@@ -3,10 +3,15 @@
     <img src="resources/catbird_banner.png"  width="400"/>
     </p>
 
+[![No Maintenance Intended](http://unmaintained.tech/badge.svg)](http://unmaintained.tech/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-brightgreen.svg)](https://opensource.org/licenses/MIT)
 [![codecov](https://img.shields.io/codecov/c/gh/AfonsoSalgadoSousa/catbird)](https://codecov.io/gh/AfonsoSalgadoSousa/catbird)
 
 </div>
+
+⛔️ DEPRECATED
+This was a personal project I built to help in my research. As it got bigger, I thought others could find some of its features useful. However, with the fast development of NLP, others are doing it faster and better (e.g. Huggingface or fairseq). As such, I am no longer maintaining this repository.
+---
 
 `Catbird` is an open source paraphrase generation toolkit based on PyTorch.
 
