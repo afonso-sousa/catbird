@@ -8,8 +8,8 @@ readme = "README.md"
 packages = [
     { include = "catbird" }
 ]
-repository = "https://github.com/AfonsoSalgadoSousa/catbird"
-documentation = "https://github.com/AfonsoSalgadoSousa/catbird"
+repository = "https://github.com/afonso-sousa/catbird"
+documentation = "https://github.com/afonso-sousa/catbird"
 keywords = ["nlp", "paraphrase generation"]
 
 classifiers = [
