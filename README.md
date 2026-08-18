@@ -5,7 +5,7 @@
 
 [![No Maintenance Intended](http://unmaintained.tech/badge.svg)](http://unmaintained.tech/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-brightgreen.svg)](https://opensource.org/licenses/MIT)
-[![codecov](https://img.shields.io/codecov/c/gh/AfonsoSalgadoSousa/catbird)](https://codecov.io/gh/AfonsoSalgadoSousa/catbird)
+[![codecov](https://img.shields.io/codecov/c/gh/afonso-sousa/catbird)](https://codecov.io/gh/afonso-sousa/catbird)
 
 </div>
 
@@ -60,7 +60,7 @@ Alternatively, you can run from the source code:
 **a. Clone the repository.**
 
 ```shell
-git clone https://github.com/AfonsoSalgadoSousa/catbird.git
+git clone https://github.com/afonso-sousa/catbird.git
 ```
 
 **b. Install dependencies.**
@@ -126,7 +126,7 @@ $ poetry run python tools/train.py configs/t5_quora.yaml
 
 - [Afonso Sousa][1] (afonsousa2806@gmail.com)
 
-[1]: https://github.com/AfonsoSalgadoSousa
+[1]: https://github.com/afonso-sousa
 
 # Acknowledgement
 
